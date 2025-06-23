@@ -1,4 +1,5 @@
- Algorithm_Maze_Adventure/
+ '''
+Algorithm_Maze_Adventure/
 │
 ├── main.py                 # 游戏主入口：初始化、游戏主循环、场景切换
 ├── config.py               # 配置文件：屏幕尺寸、颜色、帧率、游戏数值等常量
@@ -38,3 +39,4 @@
 │   └── map_io.py             # 用于保存和加载迷宫地图文件 (如JSON格式)
 │
 └── README.md               # 项目说明文件：介绍、如何运行、成员分工等
+'''
