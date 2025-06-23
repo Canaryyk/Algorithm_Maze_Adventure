@@ -39,6 +39,7 @@ def satisfies_constraints(password, constraints):
 
     return True
 
+
 def solve_password(current_password, constraints, digits=[0,1,2,3,4,5,6,7,8,9]):
     # Base case: Complete password formed
     if len(current_password) == 3:
