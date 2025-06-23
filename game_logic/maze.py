@@ -1,85 +1,82 @@
- # maze.py
+# maze.py
 
 import pygame
 import config as cfg
-# 在这里，之后你需要导入你的迷宫生成算法模块
-# from algorithms.maze_generator import generate_recursive_division_maze
 
 class Maze:
     def __init__(self, width, height):
-        """
-        初始化迷宫对象
-        :param width: 迷宫的宽度 (多少个格子)
-        :param height: 迷宫的高度 (多少个格子)
-        """
         self.width = width
         self.height = height
-        self.grid = []  # 用一个二维列表来存储迷宫的结构
-        self.generate_maze() # 生成迷宫
+        self.grid = []
+        self.generate_maze()
 
     def generate_maze(self):
         """
-        生成迷宫的核心函数。
-        目前，我们使用一个固定的静态迷宫用于测试。
-        后续用算法替换掉这里的静态地图。
+        生成迷宫。
+        你的任务是用算法替换掉这里的静态地图。
+        这个地图现在包含了所有你需要处理的元素。
         """
-        # --- 算法将在此处被调用 ---
-        # self.grid = generate_recursive_division_maze(self.width, self.height)
-
-        # 以下是一个用于开发的临时静态迷宫
-        # 0 代表墙, 1 代表路, 2 代表起点, 3 代表终点
+        # G=Gold(4), T=Trap(5), L=Locker(6), B=Boss(7)
         self.grid = [
-            [0, 2, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 1, 1, 1, 1, 0, 1, 1, 1, 0],
-            [0, 1, 0, 0, 1, 0, 1, 0, 1, 0],
-            [0, 1, 0, 1, 1, 1, 1, 0, 1, 0],
-            [0, 1, 0, 1, 0, 0, 1, 0, 1, 0],
-            [0, 1, 1, 1, 1, 0, 1, 1, 1, 0],
-            [0, 0, 0, 1, 0, 0, 0, 1, 0, 0],
-            [0, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-            [0, 1, 0, 0, 0, 0, 0, 0, 3, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 2, 1, 0, 0, 0, 4, 1, 1, 0, 0, 0, 0, 0, 0],
+            [0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 6, 1, 0],
+            [0, 1, 0, 5, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 0],
+            [0, 1, 1, 1, 0, 0, 4, 1, 1, 0, 1, 0, 1, 1, 0],
+            [0, 0, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0],
+            [0, 4, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 5, 1, 0],
+            [0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0],
+            [0, 1, 1, 5, 1, 1, 1, 1, 0, 4, 1, 1, 1, 1, 0],
+            [0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0],
+            [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 7, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 3, 0],
         ]
+        self.height = len(self.grid)
+        self.width = len(self.grid[0]) if self.height > 0 else 0
 
     def get_start_pos(self):
-        """返回起点的像素坐标中心点"""
         for y, row in enumerate(self.grid):
             for x, tile in enumerate(row):
                 if tile == cfg.START:
-                    # 返回格子中心点的坐标
                     return (x * cfg.TILE_SIZE + cfg.TILE_SIZE // 2,
                             y * cfg.TILE_SIZE + cfg.TILE_SIZE // 2)
-        return (cfg.TILE_SIZE // 2, cfg.TILE_SIZE // 2) # 如果没找到，默认返回
+        return (cfg.TILE_SIZE // 2, cfg.TILE_SIZE // 2)
 
     def draw(self, surface):
-        """
-        在给定的surface上绘制整个迷宫
-        :param surface: pygame的显示图层 (通常是主屏幕)
-        """
+        color_map = {
+            cfg.WALL: cfg.WALL_COLOR,
+            cfg.PATH: cfg.PATH_COLOR,
+            cfg.START: cfg.START_COLOR,
+            cfg.END: cfg.END_COLOR,
+            cfg.GOLD: cfg.GOLD_COLOR,
+            cfg.TRAP: cfg.TRAP_COLOR,
+            cfg.LOCKER: cfg.LOCKER_COLOR,
+            cfg.BOSS: cfg.BOSS_COLOR,
+        }
         for y, row in enumerate(self.grid):
             for x, tile_type in enumerate(row):
                 rect = pygame.Rect(x * cfg.TILE_SIZE, y * cfg.TILE_SIZE, cfg.TILE_SIZE, cfg.TILE_SIZE)
-                if tile_type == cfg.WALL:
-                    pygame.draw.rect(surface, cfg.WALL_COLOR, rect)
-                elif tile_type == cfg.PATH:
-                    pygame.draw.rect(surface, cfg.PATH_COLOR, rect)
-                elif tile_type == cfg.START:
-                    pygame.draw.rect(surface, cfg.START_COLOR, rect)
-                elif tile_type == cfg.END:
-                    pygame.draw.rect(surface, cfg.END_COLOR, rect)
+                # 先绘制底层颜色
+                base_color = cfg.PATH_COLOR if tile_type != cfg.WALL else cfg.WALL_COLOR
+                pygame.draw.rect(surface, base_color, rect)
+                # 如果不是普通通路或墙，再绘制上层物品颜色 (绘制一个小点的矩形以示区别)
+                if tile_type in color_map and tile_type not in [cfg.PATH, cfg.WALL]:
+                    item_rect = rect.inflate(-cfg.TILE_SIZE * 0.2, -cfg.TILE_SIZE * 0.2)
+                    pygame.draw.rect(surface, color_map[tile_type], item_rect)
 
     def is_wall(self, pixel_x, pixel_y):
-        """
-        检查给定的像素坐标是否在墙内。这是Player碰撞检测的关键。
-        :param pixel_x: 像素x坐标
-        :param pixel_y: 像素y坐标
-        :return: 如果是墙，返回True，否则返回False
-        """
-        # 将像素坐标转换为网格坐标
         grid_x = int(pixel_x // cfg.TILE_SIZE)
         grid_y = int(pixel_y // cfg.TILE_SIZE)
-
-        # 边界检查
         if 0 <= grid_x < self.width and 0 <= grid_y < self.height:
             return self.grid[grid_y][grid_x] == cfg.WALL
-        return True # 视作边界外都是墙
+        return True
+
+    def get_tile_type(self, grid_x, grid_y):
+        """获取指定网格坐标的类型"""
+        if 0 <= grid_x < self.width and 0 <= grid_y < self.height:
+            return self.grid[grid_y][grid_x]
+        return None
+
+    def set_tile_type(self, grid_x, grid_y, tile_type):
+        """设置指定网格坐标的类型"""
+        if 0 <= grid_x < self.width and 0 <= grid_y < self.height:
+            self.grid[grid_y][grid_x] = tile_type

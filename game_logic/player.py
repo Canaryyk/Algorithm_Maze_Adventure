@@ -1,100 +1,106 @@
- # player.py
+# player.py
 
 import pygame
 import config as cfg
-from game_logic.maze import Maze
+#from maze import Maze
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y, maze):
-        """
-        初始化玩家对象
-        :param x: 初始x像素坐标 (中心点)
-        :param y: 初始y像素坐标 (中心点)
-        :param maze: 传入Maze对象，用于碰撞检测
-        """
         super().__init__()
-        self.maze = maze # 保存对迷宫对象的引用
-        
-        # 创建玩家的图像 (一个简单的矩形)
+        self.maze = maze
         self.image = pygame.Surface([cfg.TILE_SIZE // 2, cfg.TILE_SIZE // 2])
         self.image.fill(cfg.PLAYER_COLOR)
         self.rect = self.image.get_rect()
         
-        # 玩家的位置使用浮点数，可以实现更平滑的移动
+        # 玩家状态属性
+        self.health = cfg.PLAYER_MAX_HEALTH
+        self.gold = 0
+        
         self.x = float(x)
         self.y = float(y)
-        # rect.center 需要整数，不能直接用float
-        self.rect.center = (round(self.x), round(self.y))
-        
-        # 移动向量
+        # rect.center 需要整数坐标，进行类型转换
+        self.rect.center = (int(self.x), int(self.y))
         self.vx = 0
         self.vy = 0
 
     def get_input(self):
-        """处理键盘输入，改变玩家的移动向量"""
         self.vx, self.vy = 0, 0
         keys = pygame.key.get_pressed()
-        
-        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]: 
             self.vx = -cfg.PLAYER_SPEED
-        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            self.vx = cfg.PLAYER_SPEED
-        if keys[pygame.K_UP] or keys[pygame.K_w]:
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]: 
+            self.vx = cfg.PLAYER_SPEED  
+        if keys[pygame.K_UP] or keys[pygame.K_w]: 
             self.vy = -cfg.PLAYER_SPEED
-        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+        if keys[pygame.K_DOWN] or keys[pygame.K_s]: 
             self.vy = cfg.PLAYER_SPEED
-            
-        # 防止斜向移动速度过快 (可选，但推荐)
         if self.vx != 0 and self.vy != 0:
-            self.vx /= 1.414 # 根号2
+            self.vx /= 1.414
             self.vy /= 1.414
 
     def update(self):
-        """
-        每帧更新玩家状态，包括移动和碰撞检测
-        """
+        """每帧更新玩家状态"""
         self.get_input()
         
-        # 移动前先记录当前位置
-        last_rect = self.rect.copy()
-
-        # 分别处理x和y方向的移动和碰撞
-        # 这样可以实现在撞墙时，角色可以沿着墙壁滑动，而不是完全卡住
+        # 移动和碰撞检测
+        self.move()
         
-        # X方向移动
+        # 处理与脚下格子的交互
+        self.handle_interaction()
+
+    def move(self):
+        """处理移动和墙壁碰撞"""
+        last_rect = self.rect.copy()
+        
+        # X方向
         self.x += self.vx
         self.rect.centerx = round(self.x)
-        if self.check_collision('x'):
-            self.rect.centerx = last_rect.centerx # 如果碰撞，则撤销移动
-            self.x = self.rect.centerx
+        if self.check_collision():
+            self.x = last_rect.centerx
+            self.rect.centerx = last_rect.centerx
 
-        # Y方向移动
+        # Y方向
         self.y += self.vy
         self.rect.centery = round(self.y)
-        if self.check_collision('y'):
-            self.rect.centery = last_rect.centery # 如果碰撞，则撤销移动
-            self.y = self.rect.centery
+        if self.check_collision():
+            self.y = last_rect.centery
+            self.rect.centery = last_rect.centery
+            
+    def check_collision(self):
+        """检查玩家是否与墙壁碰撞"""
+        return self.maze.is_wall(self.rect.centerx, self.rect.centery)
 
-    def check_collision(self, direction):
-        """
-        检查玩家是否与墙壁发生碰撞
-        :param direction: 'x' 或 'y'，用于分别检测
-        :return: 如果碰撞，返回True
-        """
-        # 使用玩家矩形的四个角点进行检测
-        corners_to_check = [
-            self.rect.topleft, self.rect.topright,
-            self.rect.bottomleft, self.rect.bottomright
-        ]
+    def handle_interaction(self):
+        """处理玩家与脚下格子的交互事件"""
+        grid_x = int(self.rect.centerx // cfg.TILE_SIZE)
+        grid_y = int(self.rect.centery // cfg.TILE_SIZE)
         
-        for corner in corners_to_check:
-            if self.maze.is_wall(corner[0], corner[1]):
-                return True
-                
-        return False
+        tile_type = self.maze.get_tile_type(grid_x, grid_y)
+
+        if tile_type == cfg.GOLD:
+            self.gold += cfg.GOLD_VALUE
+            print(f"捡到金币! 当前金币: {self.gold}")
+            self.maze.set_tile_type(grid_x, grid_y, cfg.PATH) # 将金币格子变回通路
+        
+        elif tile_type == cfg.TRAP:
+            self.health -= cfg.TRAP_DAMAGE
+            print(f"踩到陷阱! 生命值: {self.health}")
+            self.maze.set_tile_type(grid_x, grid_y, cfg.PATH) # 陷阱触发后消失
+        
+        elif tile_type == cfg.LOCKER:
+            # 这里是为成员C预留的接口
+            print("遇到一个机关! (解谜逻辑待实现)")
+            # 成员C的解谜模块被调用后，如果成功，可以把这个格子变成PATH
+            # self.maze.set_tile_type(grid_x, grid_y, cfg.PATH)
+
+        elif tile_type == cfg.BOSS:
+            # 这里是为成员C预留的接口
+            print("遭遇BOSS! (战斗逻辑待实现)")
+
+        elif tile_type == cfg.END:
+            # 游戏结束逻辑
+            print("恭喜你，到达终点!")
+            # 可以在这里触发游戏结束状态
 
     def draw(self, surface):
-        """
-        在给定的surface上绘制玩家
-        """
         surface.blit(self.image, self.rect)
