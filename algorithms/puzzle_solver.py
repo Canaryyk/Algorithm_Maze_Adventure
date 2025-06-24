@@ -1,63 +1,105 @@
-constraints = {
-    "prime_only": True,           # 每位必须是素数
-    "no_repetition": True         # 不允许重复数字
-}
+import hashlib
 
+# 判断是否是质数（在 0~9 范围内）
 def is_prime(digit):
-    #Helper function to check if a digit is prime.
     return digit in {2, 3, 5, 7}
 
+# 解析线索格式
+def parse_constraints(C):
+    constraints = {
+        "prime_and_unique": False,
+        "position_even_odd": {},   # {1:0, 2:1, ...}
+        "fixed_digit": {}          # {1: b, 2: b, 3: b}
+    }
+    for clue in C:
+        if len(clue) == 2:
+            if clue == [-1, -1]:
+                constraints["prime_and_unique"] = True
+            else:
+                a, val = clue
+                if 1 <= a <= 3 and val in (0, 1):
+                    constraints["position_even_odd"][a] = val
+        elif len(clue) == 3:
+            for i in range(3):
+                if clue[i] != -1:
+                    constraints["fixed_digit"][i + 1] = clue[i]
+    return constraints
+
+# 单位判断是否合法
 def is_valid_choice(digit, current_password, constraints):
-    # 限制：当前数字必须是素数
-    if constraints.get("prime_only", False):
-        if not is_prime(digit):
+    pos = len(current_password) + 1  # 1-based
+
+    if pos in constraints["fixed_digit"]:
+        if digit != constraints["fixed_digit"][pos]:
             return False
 
-    # 限制：当前数字不能重复
-    if constraints.get("no_repetition", False):
+    if pos in constraints["position_even_odd"]:
+        expected = constraints["position_even_odd"][pos]
+        if expected == 0 and digit % 2 != 0:
+            return False
+        if expected == 1 and digit % 2 != 1:
+            return False
+
+    if constraints["prime_and_unique"]:
+        if not is_prime(digit):
+            return False
         if digit in current_password:
             return False
 
     return True
 
-
+# 整体密码判断
 def satisfies_constraints(password, constraints):
-    # 检查长度为3（你主函数中已保证，也可以冗余检查）
     if len(password) != 3:
         return False
 
-    # 限制：所有数字必须是素数
-    if constraints.get("prime_only", False):
-        for digit in password:
-            if not is_prime(digit):
-                return False
-
-    # 限制：所有数字必须唯一
-    if constraints.get("no_repetition", False):
-        if len(set(password)) != len(password):
+    if constraints["prime_and_unique"]:
+        if not all(is_prime(d) for d in password):
+            return False
+        if len(set(password)) != 3:
             return False
 
     return True
 
+# 计算哈希
+def sha256_hex(password_digits):
+    s = ''.join(str(d) for d in password_digits)
+    return hashlib.sha256(s.encode('utf-8')).hexdigest()
 
-def solve_password(current_password, constraints, digits=[0,1,2,3,4,5,6,7,8,9]):
-    # Base case: Complete password formed
+# 添加 solve_password 的计数器版本
+def solve_password(current_password, constraints, digits=range(10), counter=None):
+    if counter is None:
+        counter = {"attempts": 0}
+
     if len(current_password) == 3:
+        counter["attempts"] += 1
         if satisfies_constraints(current_password, constraints):
-            return current_password
+            h = sha256_hex(current_password)
+            if h == constraints["target_hash"]:
+                return current_password
         return None
-    
-    # Recursive step: Try each possible digit
-    for digit in digits:
-        # Pruning: Check constraints (e.g., prime, no repetition)
-        if is_valid_choice(digit, current_password, constraints):
-            # Explore: Add digit and recurse
-            result = solve_password(current_password + [digit], constraints, digits)
-            if result:
-                return result
-            # Backtrack: Implicitly handled by not modifying current_password permanently
+
+    for d in digits:
+        if is_valid_choice(d, current_password, constraints):
+            res = solve_password(current_password + [d], constraints, digits, counter)
+            if res:
+                return res
     return None
 
-def crack_password(constraints):
-    # Entry point: Start with empty password
-    return solve_password([], constraints)  
+
+def crack_password_from_input(input_data):
+    #改为输入样例的文件名
+    C = input_data.get("C", [])
+    L = input_data.get("L", "")
+
+    constraints = parse_constraints(C)
+    constraints["target_hash"] = L
+
+    counter = {"attempts": 0}
+    password = solve_password([], constraints, counter=counter)
+
+    if password:
+        print("正确密码:", ''.join(str(d) for d in password))
+    else:
+        print("未找到符合条件的密码")
+# “print("尝试次数:", counter["attempts"])”密码求解次数
