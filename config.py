@@ -47,11 +47,23 @@ TRAP_DAMAGE = 25
 GOLD_VALUE = 10
 
 # 迷宫地图元素符号 (用于内部数据表示)
-WALL = 0
-PATH = 1
-START = 2
-END = 3
-GOLD = 4
-TRAP = 5
-LOCKER = 6
-BOSS = 7
+PATH = ' '
+WALL = '#'
+START = 'S'
+EXIT = 'E'
+GOLD = 'G'
+TRAP = 'T'
+LOCKER = 'L'
+BOSS = 'B'
+
+# 地图元素数值映射 (用于算法处理)
+ELEMENT_MAPPING = {
+    PATH: 0,    # 可通行路径
+    WALL: 1,    # 不可通行墙壁
+    START: 2,   # 起点
+    EXIT: 3,    # 终点
+    GOLD: 4,    # 金币
+    TRAP: 5,    # 陷阱
+    LOCKER: 6,  # 密码锁
+    BOSS: 7     # BOSS战
+}

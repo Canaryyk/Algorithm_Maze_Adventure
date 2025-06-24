@@ -97,7 +97,7 @@ class Player(pygame.sprite.Sprite):
             # 这里是为成员C预留的接口
             print("遭遇BOSS! (战斗逻辑待实现)")
 
-        elif tile_type == cfg.END:
+        elif tile_type == cfg.EXIT:
             # 游戏结束逻辑
             print("恭喜你，到达终点!")
             # 可以在这里触发游戏结束状态

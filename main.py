@@ -49,7 +49,7 @@ def main():
             
             grid_x = int(player.rect.centerx // cfg.TILE_SIZE)
             grid_y = int(player.rect.centery // cfg.TILE_SIZE)
-            if game_maze.get_tile_type(grid_x, grid_y) == cfg.END:
+            if game_maze.get_tile_type(grid_x, grid_y) == cfg.EXIT:
                 game_over = True
 
 
