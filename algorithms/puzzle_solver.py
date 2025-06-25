@@ -62,9 +62,12 @@ def satisfies_constraints(password, constraints):
     return True
 
 # 计算哈希
-def sha256_hex(password_digits):
-    s = ''.join(str(d) for d in password_digits)
-    return hashlib.sha256(s.encode('utf-8')).hexdigest()
+def sha256_of_pwd(pwd):
+    s = ''.join(str(x) for x in pwd)
+    # 使用同样的盐和方法
+    salt = b'\xb2S"e}\xdf\xb0\xfe\x9c\xde\xde\xfe\xf3\x1d\xdc>'
+    return hashlib.sha256(salt + s.encode('utf-8')).hexdigest()
+
 
 # 添加 solve_password 的计数器版本
 def solve_password(current_password, constraints, digits=range(10), counter=None):
@@ -74,7 +77,7 @@ def solve_password(current_password, constraints, digits=range(10), counter=None
     if len(current_password) == 3:
         counter["attempts"] += 1
         if satisfies_constraints(current_password, constraints):
-            h = sha256_hex(current_password)
+            h = sha256_of_pwd(current_password)
             if h == constraints["target_hash"]:
                 return current_password
         return None
@@ -88,7 +91,6 @@ def solve_password(current_password, constraints, digits=range(10), counter=None
 
 
 def crack_password_from_input(input_data):
-    #改为输入样例的文件名
     C = input_data.get("C", [])
     L = input_data.get("L", "")
 
@@ -102,4 +104,15 @@ def crack_password_from_input(input_data):
         print("正确密码:", ''.join(str(d) for d in password))
     else:
         print("未找到符合条件的密码")
-# “print("尝试次数:", counter["attempts"])”密码求解次数
+   # print("尝试次数:", counter["attempts"])
+
+
+# ===== 测试样例 =====
+#if __name__ == "__main__":
+ #   test_input = {
+  #      "C": [[1, 0], [-1, -1]],  # 第一位偶数，且全素数不重复
+   #     "L": "003a44b04e2e9eac5eb7597955068e745d78bb18b17a60d26645beebe111de40"  # 257的sha256哈希
+ #   }
+#    crack_password_from_input(test_input)
+
+
