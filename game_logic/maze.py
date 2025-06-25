@@ -12,9 +12,7 @@ class Maze:
 
     def generate_maze(self):
         """
-        生成迷宫。
-        你的任务是用算法替换掉这里的静态地图。
-        这个地图现在包含了所有你需要处理的元素。
+        生成迷宫
         """
         # G=Gold, T=Trap, L=Locker, B=Boss
         self.grid = [
