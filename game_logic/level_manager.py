@@ -2,7 +2,7 @@
 import arcade
 import random
 import config as cfg
-from .interactive_objects import ChestSprite, ExitSprite, BossSprite
+from .interactive_objects import PuzzleChestSprite, ExitSprite, BossSprite
 
 def _pos_from_grid(grid_x, grid_y, window_height):
     """将网格坐标转换为屏幕像素坐标。"""
@@ -109,7 +109,7 @@ def setup_level(game_maze, window_height):
     sprite_lists = {
         "floor": arcade.SpriteList(),
         "wall": arcade.SpriteList(use_spatial_hash=True),
-        "gold": arcade.SpriteList(use_spatial_hash=True),
+        "resources": arcade.SpriteList(use_spatial_hash=True),
         "trap": arcade.SpriteList(use_spatial_hash=True),
         "exit": arcade.SpriteList(use_spatial_hash=True),
         "locker": arcade.SpriteList(use_spatial_hash=True),
@@ -143,11 +143,11 @@ def setup_level(game_maze, window_height):
                 
                 sprite_lists["wall"].append(sprite)
             
-            elif tile_type == cfg.GOLD:
+            elif tile_type == cfg.RESOURCE_NODE:
                 # 暂时使用静态纹理替代动画，避免动画错误
-                sprite = arcade.Sprite(str(cfg.GOLD_PATH), scale=cfg.GIF_SCALING)
+                sprite = arcade.Sprite(str(cfg.RESOURCE_PATH), scale=cfg.GIF_SCALING)
                 sprite.position = pos
-                sprite_lists["gold"].append(sprite)
+                sprite_lists["resources"].append(sprite)
 
             elif tile_type == cfg.TRAP:
                 sprite = arcade.Sprite(str(cfg.TRAP_PATH), cfg.PNG_SCALING)
@@ -161,7 +161,7 @@ def setup_level(game_maze, window_height):
                 sprite_lists["boss"].append(sprite)
                 
             elif tile_type == cfg.LOCKER:
-                sprite = ChestSprite(scale=cfg.PNG_SCALING)
+                sprite = PuzzleChestSprite(scale=cfg.PNG_SCALING)
                 sprite.position = pos
                 sprite_lists["locker"].append(sprite)
             

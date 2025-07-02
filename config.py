@@ -24,19 +24,18 @@ MAZE_WIDTH = 15  # 迷宫宽度（格子数）
 MAZE_HEIGHT = 15  # 迷宫高度（格子数）
 
 # === 玩家设置 ===
-PLAYER_MAX_HEALTH = 100
 PLAYER_SPEED = 4
 
 # === 游戏数值 ===
-TRAP_DAMAGE = 30
-GOLD_VALUE = 50
+TRAP_PENALTY = 30  # 陷阱惩罚（扣除资源）
+RESOURCE_VALUE = 50
 
 # === 地图元素符号 ===
 PATH = ' '     # 可通行路径
 WALL = '#'     # 墙壁
 START = 'S'    # 起点
 EXIT = 'E'     # 终点
-GOLD = 'G'     # 金币
+RESOURCE_NODE = 'G'     # 资源点
 TRAP = 'T'     # 陷阱
 LOCKER = 'L'   # 宝箱
 BOSS = 'B'     # BOSS
@@ -81,7 +80,7 @@ GRASS_PATHS = [
 ]
 
 # 物品素材路径
-GOLD_PATH = ASSET_PATH / "coin.gif"
+RESOURCE_PATH = ASSET_PATH / "coin.gif"
 TRAP_PATH = ASSET_PATH / "trap.png"
 BOSS_PATH = ASSET_PATH / "Chicken Sprites.gif"
 
@@ -90,16 +89,18 @@ CHEST_CLOSED_PATH = ASSET_PATH / "chest(close).png"
 CHEST_OPEN_PATH = ASSET_PATH / "chest(open).png"
 EXIT_CLOSED_PATH = ASSET_PATH / "exit(close).png"
 EXIT_OPEN_PATH = ASSET_PATH / "exit(open).png"
+PUZZLE_VIDEO_PATH = ASSET_PATH / "Pixel_Chest_Unlocked_.mp4"
 
 # === 音乐配置 ===
 MUSIC_PATH = PROJECT_ROOT / "music"
 MUSIC_PATHS = {
     "background": MUSIC_PATH / "background.mp3",
     "boss_battle": MUSIC_PATH / "boss_battle.mp3", 
-    "get_gold": MUSIC_PATH / "get_gold.mp3",
+    "get_resource": MUSIC_PATH / "get_gold.mp3",
     "unlock_locker": MUSIC_PATH / "unlock-locker.mp3",
     "step_trap": MUSIC_PATH / "step_trap.mp3",
     "footstep": MUSIC_PATH / "running-on-grass-26845.mp3",
+    "exit": MUSIC_PATH / "exit.mp3",
 }
 
 # 音量设置

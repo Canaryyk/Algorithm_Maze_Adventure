@@ -24,13 +24,13 @@ class BattleManager:
         self.skill_map: Dict[int, str] = {}
         self.current_turn = 0
         self.turn_timer = 0.0
-        self.turn_duration = 2.0  # 每回合持续2秒（加速1.5倍）
+        self.turn_duration = 2.0 / 1.5  # 加速1.5倍
+        self.is_battle_finished = False # 新增：战斗结束标志
 
         # --- 精灵和动画 ---
         self.player_sprite: Optional[arcade.Sprite] = None
         self.boss_sprite: Optional[arcade.Sprite] = None
         self.character_sprites = arcade.SpriteList()
-        self.player_hp = cfg.PLAYER_MAX_HEALTH
         self.boss_hps: List[int] = []
         self.current_boss_idx = 0
         self.projectiles = arcade.SpriteList()
@@ -38,6 +38,7 @@ class BattleManager:
     def setup_battle(self, boss_data: BossSprite):
         """
         准备战斗UI和数据。
+        返回战斗需要的总回合数。
         """
         print("BattleManager: Setting up battle...")
         self._reset_state()
@@ -46,7 +47,7 @@ class BattleManager:
         # --- 准备战斗数据 ---
         if not self.active_boss_data:
             self.battle_log.append("错误：无效的Boss对象。")
-            return
+            return 0
 
         # 确保active_boss_data不为None后才访问其属性
         assert self.active_boss_data is not None
@@ -64,10 +65,13 @@ class BattleManager:
         
         if error:
             self.battle_log.append(f"错误: {error}")
-            return
+            return 0
             
         self.skill_sequence = sequence
         self.battle_log.append("战斗开始！")
+        self.battle_log.append(f"AI测算最少回合: {len(self.skill_sequence)}")
+        
+        return len(self.skill_sequence)
 
     def _create_sprites(self):
         """创建战斗中的玩家和Boss精灵"""
@@ -97,12 +101,6 @@ class BattleManager:
         # --- 绘制角色和HP ---
         self.character_sprites.draw()
         
-        if self.player_sprite:
-            arcade.draw_text(f"玩家 HP: {self.player_hp}", 
-                             self.player_sprite.center_x, 
-                             self.player_sprite.center_y - 60, 
-                             arcade.color.WHITE, 12, anchor_x="center")
-
         if self.boss_sprite:
             if self.current_boss_idx < len(self.boss_hps):
                 arcade.draw_text(f"Boss {self.current_boss_idx + 1} HP: {self.boss_hps[self.current_boss_idx]}", 
@@ -141,9 +139,17 @@ class BattleManager:
         if self.turn_timer > self.turn_duration and self.current_turn < len(self.skill_sequence):
             self.turn_timer = 0.0
             self._execute_turn()
+        
+        # 检查战斗是否在动画播放完毕后结束
+        if self.current_turn >= len(self.skill_sequence) and not self.is_battle_finished:
+            if self.turn_timer > 2.0: # 额外等待2秒以显示最后结果
+                self.is_battle_finished = True
 
     def _execute_turn(self):
         """执行当前回合的逻辑。"""
+        if self.current_turn >= len(self.skill_sequence):
+             return
+             
         skill_id = self.skill_sequence[self.current_turn]
         skill_name = self.skill_map.get(skill_id, "未知技能")
         log_entry = f"回合 {self.current_turn + 1}: 使用 {skill_name}"
@@ -168,7 +174,9 @@ class BattleManager:
         self.current_turn += 1
 
         if self.current_turn >= len(self.skill_sequence):
-            self.battle_log.append("战斗结束！按 ESC 返回。")
+            final_log = f"战斗结束! 最小回合数: {len(self.skill_sequence)}"
+            self.battle_log.append(final_log)
+            print(final_log)
 
     def _create_projectile_animation(self):
         """创建一个从玩家飞向Boss的飞行物。"""
@@ -189,7 +197,7 @@ class BattleManager:
         delta_y = dest_y - self.player_sprite.center_y
         
         # 将速度设置为一个固定的、较慢的值（加速1.5倍）
-        projectile.change_y = delta_y / 20  # 60帧, 即大约1.0秒飞到
+        projectile.change_y = delta_y / (60 * (self.turn_duration / 2)) # 调整飞行时间以匹配回合时间
         self.projectiles.append(projectile)
 
     def _reset_state(self):
@@ -207,6 +215,7 @@ class BattleManager:
         self.character_sprites.clear()
         self.player_sprite = None
         self.boss_sprite = None
+        self.is_battle_finished = False
 
     def clear(self):
         """清理战斗管理器状态（供外部调用）"""

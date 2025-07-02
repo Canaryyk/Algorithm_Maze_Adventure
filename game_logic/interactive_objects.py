@@ -31,9 +31,34 @@ class PuzzleChestSprite(ChestSprite):
     def __init__(self, scale: float = 1.0, **kwargs):
         super().__init__(scale=scale, **kwargs)
         self.is_locked = True
-        # 示例谜题数据 (之后可以从关卡文件加载)
-        self.puzzle_constraints = [[-1, -1], [1, 0]] 
-        self.puzzle_hash = "c1606491763321ac3149620026e9532c524354247883204950529454845b42d7" # 密码是 720
+        # 从test.json文件加载谜题数据
+        self.puzzle_constraints, self.puzzle_hash = self._load_puzzle_data()
+
+    def _load_puzzle_data(self):
+        """从test.json文件加载谜题的约束和哈希值"""
+        try:
+            with open(cfg.PROJECT_ROOT / "test.json", "r", encoding="utf-8") as f:
+                data = json.load(f)
+            
+            # 从 'C' 和 'L' 键加载数据
+            constraints = data.get("C", [])
+            target_hash = data.get("L", "")
+            
+            print(f"从test.json加载谜题数据:")
+            print(f"  约束 (C): {constraints}")
+            print(f"  哈希 (L): {target_hash}")
+            
+            return constraints, target_hash
+            
+        except FileNotFoundError:
+            print("警告: test.json文件未找到，使用默认谜题数据")
+            return [[-1, -1], [1, 0]], "c1606491763321ac3149620026e9532c524354247883204950529454845b42d7"
+        except json.JSONDecodeError:
+            print("警告: test.json文件格式错误，使用默认谜题数据")
+            return [[-1, -1], [1, 0]], "c1606491763321ac3149620026e9532c524354247883204950529454845b42d7"
+        except Exception as e:
+            print(f"警告: 加载test.json时发生错误: {e}，使用默认谜题数据")
+            return [[-1, -1], [1, 0]], "c1606491763321ac3149620026e9532c524354247883204950529454845b42d7"
 
     def unlock(self):
         """解锁宝箱"""

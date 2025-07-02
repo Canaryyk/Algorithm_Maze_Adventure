@@ -65,7 +65,7 @@ class Maze:
         items = [
             (cfg.START, 1),   # 起点
             (cfg.EXIT, 1),    # 终点
-            (cfg.GOLD, min(8, len(path_coords) // 4)),     # 金币
+            (cfg.RESOURCE_NODE, min(8, len(path_coords) // 4)),     # 金币
             (cfg.TRAP, min(6, len(path_coords) // 5)),     # 陷阱
             (cfg.LOCKER, 1),  # 宝箱
             (cfg.BOSS, 1),    # BOSS

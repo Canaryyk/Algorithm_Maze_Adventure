@@ -62,8 +62,7 @@ class Player:
     def __init__(self, start_x: int, start_y: int, maze):
         """初始化玩家"""
         # 玩家属性
-        self.health = cfg.PLAYER_MAX_HEALTH
-        self.gold = 0
+        self.resources = 0 # 初始资源
         
         # 玩家位置（网格坐标）
         self.grid_x = start_x
@@ -86,13 +85,13 @@ class Player:
         
         tile_type = self.maze.get_tile_type(grid_x, grid_y)
         
-        if tile_type == cfg.GOLD:
-            self.gold += cfg.GOLD_VALUE
+        if tile_type == cfg.RESOURCE_NODE:
+            self.resources += cfg.RESOURCE_VALUE
             self.maze.set_tile_type(grid_x, grid_y, cfg.PATH)
-            return cfg.GOLD
+            return cfg.RESOURCE_NODE
         
         elif tile_type == cfg.TRAP:
-            self.health -= cfg.TRAP_DAMAGE
+            self.resources -= cfg.TRAP_PENALTY
             self.maze.set_tile_type(grid_x, grid_y, cfg.PATH)
             return cfg.TRAP
         
@@ -101,7 +100,11 @@ class Player:
         
         return None
     
+    def deduct_resources(self, amount: int):
+        """扣除指定数量的资源"""
+        self.resources -= amount
+        print(f"资源扣除: -{amount}, 当前资源: {self.resources}")
+    
     def reset(self) -> None:
         """重置玩家状态"""
-        self.health = cfg.PLAYER_MAX_HEALTH
-        self.gold = 0
+        self.resources = 100

@@ -16,7 +16,7 @@ class DSU:
         self.num_sets: int = n
     
     def find(self, i: int) -> int:
-        """查找根节点，路径压缩优化"""
+        """查找根节点"""
         if self.parent[i] == i:
             return i
         self.parent[i] = self.find(self.parent[i])
