@@ -1,31 +1,30 @@
-# player.py
-
-import config as cfg
 import arcade
+import config as cfg
+#player.py
+
 
 class PlayerSprite(arcade.Sprite):
-    """
-    玩家精灵类，负责处理玩家的视觉呈现和动画
-    """
     def __init__(self, start_pos):
-        super().__init__(scale=cfg.PLAYER_SCALING)
-        
-        # 精灵位置
+        self._load_textures()
+        initial_texture = self.idle_textures["down"][0]
+        super().__init__(texture=initial_texture, scale=cfg.PLAYER_SCALING)
         self.position = start_pos
-        
-        # 动画属性
-        self.walk_textures = {}
-        self.idle_textures = {}
         self.direction = "down"
         self.animation_timer = 0
         self.current_frame = 0
+        
+        # --- (新增) 诊断代码 ---
+        # 在创建后立即检查自己是否有效
+        assert self.texture is not None and self.hit_box is not None, "PlayerSprite 创建失败，成为了一个幽灵精灵！"
+        print("诊断信息: PlayerSprite 创建成功，碰撞箱有效。")
 
-        # 加载纹理
-        self._load_textures()
-        self.texture = self.idle_textures["down"]
-
+        
     def _load_textures(self):
         """从图集中加载玩家动画纹理"""
+        # 将 idle_textures 也定义为列表，以保持数据结构统一
+        self.walk_textures = {}
+        self.idle_textures = {}
+        
         all_frames = arcade.load_spritesheet(
             cfg.PLAYER_SPRITESHEET_PATH,
             sprite_width=cfg.SPRITE_PIXEL_SIZE,
@@ -37,36 +36,36 @@ class PlayerSprite(arcade.Sprite):
         self.walk_textures["left"] = all_frames[cfg.CHAR_ANIM_LEFT*4 : cfg.CHAR_ANIM_LEFT*4 + 4]
         self.walk_textures["right"] = all_frames[cfg.CHAR_ANIM_RIGHT*4 : cfg.CHAR_ANIM_RIGHT*4 + 4]
         self.walk_textures["up"] = all_frames[cfg.CHAR_ANIM_UP*4 : cfg.CHAR_ANIM_UP*4 + 4]
-        self.idle_textures["down"] = all_frames[cfg.CHAR_ANIM_DOWN*4]
-        self.idle_textures["left"] = all_frames[cfg.CHAR_ANIM_LEFT*4]
-        self.idle_textures["right"] = all_frames[cfg.CHAR_ANIM_RIGHT*4]
-        self.idle_textures["up"] = all_frames[cfg.CHAR_ANIM_UP*4]
+        
+        # 待机动画也使用列表，即使只有一帧
+        self.idle_textures["down"] = [all_frames[cfg.CHAR_ANIM_DOWN*4]]
+        self.idle_textures["left"] = [all_frames[cfg.CHAR_ANIM_LEFT*4]]
+        self.idle_textures["right"] = [all_frames[cfg.CHAR_ANIM_RIGHT*4]]
+        self.idle_textures["up"] = [all_frames[cfg.CHAR_ANIM_UP*4]]
 
     def update_animation(self, delta_time: float, target_speed_x: float, target_speed_y: float):
         """根据玩家速度和方向更新动画"""
         is_moving = target_speed_x != 0 or target_speed_y != 0
 
         # 更新方向
-        if target_speed_y > 0:
-            self.direction = "up"
-        elif target_speed_y < 0:
-            self.direction = "down"
-        elif target_speed_x < 0:
-            self.direction = "left"
-        elif target_speed_x > 0:
-            self.direction = "right"
+        if target_speed_y > 0: self.direction = "up"
+        elif target_speed_y < 0: self.direction = "down"
+        elif target_speed_x < 0: self.direction = "left"
+        elif target_speed_x > 0: self.direction = "right"
         
         # 更新动画帧
         if is_moving:
+            textures_to_use = self.walk_textures[self.direction]
             self.animation_timer += delta_time
             if self.animation_timer > cfg.PLAYER_ANIMATION_SPEED:
                 self.animation_timer = 0
-                self.current_frame = (self.current_frame + 1) % cfg.PLAYER_ANIMATION_FRAMES
-                self.texture = self.walk_textures[self.direction][self.current_frame]
+                self.current_frame = (self.current_frame + 1) % len(textures_to_use)
+                self.texture = textures_to_use[self.current_frame]
         else:
             self.animation_timer = 0
             self.current_frame = 0
-            self.texture = self.idle_textures[self.direction]
+            self.texture = self.idle_textures[self.direction][0]
+
 
 class Player:
     """

@@ -28,11 +28,11 @@ def setup_level(game_maze, window_height):
     }
 
     item_paths = {
-        cfg.GOLD: "Sprout Lands - Sprites - Basic pack/Objects/Egg_item.png",
-        cfg.TRAP: "Sprout Lands - Sprites - Basic pack/Objects/Basic_tools_and_meterials.png",
-        cfg.EXIT: "Sprout Lands - Sprites - Basic pack/Tilesets/Doors.png",
-        cfg.LOCKER: "Sprout Lands - Sprites - Basic pack/Objects/Chest.png",
-        cfg.BOSS: "Sprout Lands - UI Pack - Basic pack/Sprite sheets/Dialouge UI/Emotes/Teemo Basic emote animations sprite sheet.png",
+        cfg.GOLD: "image/sun.png",
+        cfg.TRAP: "image/boss.png",
+        cfg.EXIT: "image/door(open).png",
+        cfg.LOCKER: "image/door(close).png",
+        cfg.BOSS: "image/boss.png",
     }
     
     player_start_pos = (0, 0)
@@ -44,9 +44,13 @@ def setup_level(game_maze, window_height):
 
             if tile_type == cfg.WALL:
                 sprite = arcade.Sprite(
-                    "Sprout Lands - Sprites - Basic pack/Tilesets/Wooden_House_Walls_Tilset.png", cfg.TILE_SCALING,
-                    image_x=0, image_y=0, image_width=16, image_height=16
+                    "image/wall.png", 
+                     scale=cfg.TILE_SCALING
                 )
+                # 检查每个墙壁精灵，确保它不是一个没有纹理或碰撞箱的"幽灵"精灵
+                if sprite.texture is None or sprite.hit_box is None:
+                    print(f"严重错误: 位于网格 ({c}, {r}) 的墙壁精灵是一个幽灵精灵，没有有效的纹理或碰撞箱!")
+                    
                 sprite.position = pos
                 sprite_lists["wall"].append(sprite)
             else:
@@ -60,20 +64,18 @@ def setup_level(game_maze, window_height):
                 if tile_type in item_paths:
                     path = item_paths[tile_type]
                     
+                    # 统一简化精灵创建，避免因尺寸参数错误导致无碰撞箱
+                    sprite = arcade.Sprite(path, cfg.TILE_SCALING)
+
                     if tile_type == cfg.GOLD:
-                        sprite = arcade.Sprite(path, cfg.TILE_SCALING)
                         sprite_lists["gold"].append(sprite)
                     elif tile_type == cfg.TRAP:
-                        sprite = arcade.Sprite(path, cfg.TILE_SCALING, image_x=32, image_y=16, image_width=16, image_height=16)
                         sprite_lists["trap"].append(sprite)
                     elif tile_type == cfg.EXIT:
-                        sprite = arcade.Sprite(path, cfg.TILE_SCALING, image_x=0, image_y=0, image_width=16, image_height=16)
                         sprite_lists["exit"].append(sprite)
                     elif tile_type == cfg.LOCKER:
-                        sprite = arcade.Sprite(path, cfg.TILE_SCALING, image_x=0, image_y=0, image_width=16, image_height=16)
                         sprite_lists["locker"].append(sprite)
                     elif tile_type == cfg.BOSS:
-                        sprite = arcade.Sprite(path, cfg.TILE_SCALING, image_x=0, image_y=0, image_width=32, image_height=32)
                         sprite_lists["boss"].append(sprite)
                     
                     sprite.position = pos

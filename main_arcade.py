@@ -6,6 +6,11 @@ from game_logic.player import Player, PlayerSprite
 from game_logic.level_manager import setup_level
 import random
 import math
+import pathlib
+
+# --- 项目根目录 ---
+# 这会获取 config.py 文件所在的目录 (即项目根目录)
+PROJECT_ROOT = pathlib.Path(__file__).parent.resolve()
 
 # --- Animation Constants ---
 # 假设 "Basic Charakter Spritesheet.png" 是一个 4x4 的图集，每个精灵为 16x16 像素
