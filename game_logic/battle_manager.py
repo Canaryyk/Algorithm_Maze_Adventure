@@ -1,5 +1,6 @@
 import arcade
 import arcade.gui
+import arcade.color
 from typing import Optional, List, Dict, Any
 
 from game_logic.interactive_objects import BossSprite
@@ -23,7 +24,7 @@ class BattleManager:
         self.skill_map: Dict[int, str] = {}
         self.current_turn = 0
         self.turn_timer = 0.0
-        self.turn_duration = 3.0  # 每回合持续3秒
+        self.turn_duration = 2.0  # 每回合持续2秒（加速1.5倍）
 
         # --- 精灵和动画 ---
         self.player_sprite: Optional[arcade.Sprite] = None
@@ -47,6 +48,8 @@ class BattleManager:
             self.battle_log.append("错误：无效的Boss对象。")
             return
 
+        # 确保active_boss_data不为None后才访问其属性
+        assert self.active_boss_data is not None
         self.boss_hps = list(self.active_boss_data.boss_hps)
         skills = self.active_boss_data.player_skills
         self.skill_map = {i: f"技能{i+1} (D:{s[0]},C:{s[1]})" for i, s in enumerate(skills)}
@@ -147,7 +150,7 @@ class BattleManager:
         self.battle_log.append(log_entry)
         print(log_entry)
 
-        if skill_id != -1 and self.current_boss_idx < len(self.boss_hps):
+        if skill_id != -1 and self.current_boss_idx < len(self.boss_hps) and self.active_boss_data:
             # 执行攻击
             skill_damage = self.active_boss_data.player_skills[skill_id][0]
             self.boss_hps[self.current_boss_idx] -= skill_damage
@@ -185,8 +188,8 @@ class BattleManager:
         dest_y = self.boss_sprite.center_y
         delta_y = dest_y - self.player_sprite.center_y
         
-        # 将速度设置为一个固定的、较慢的值
-        projectile.change_y = delta_y / 30  # 90帧, 即大约1.5秒飞到
+        # 将速度设置为一个固定的、较慢的值（加速1.5倍）
+        projectile.change_y = delta_y / 20  # 60帧, 即大约1.0秒飞到
         self.projectiles.append(projectile)
 
     def _reset_state(self):
@@ -203,4 +206,8 @@ class BattleManager:
         self.projectiles.clear()
         self.character_sprites.clear()
         self.player_sprite = None
-        self.boss_sprite = None 
+        self.boss_sprite = None
+
+    def clear(self):
+        """清理战斗管理器状态（供外部调用）"""
+        self._reset_state() 

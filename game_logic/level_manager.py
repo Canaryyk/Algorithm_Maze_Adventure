@@ -2,7 +2,7 @@
 import arcade
 import random
 import config as cfg
-from .interactive_objects import ChestSprite, ExitSprite
+from .interactive_objects import ChestSprite, ExitSprite, BossSprite
 
 def _pos_from_grid(grid_x, grid_y, window_height):
     """将网格坐标转换为屏幕像素坐标。"""
@@ -155,8 +155,8 @@ def setup_level(game_maze, window_height):
                 sprite_lists["trap"].append(sprite)
 
             elif tile_type == cfg.BOSS:
-                # 暂时使用静态纹理替代动画，避免动画错误
-                sprite = arcade.Sprite(str(cfg.BOSS_PATH), scale=cfg.GIF_SCALING)
+                # 使用BossSprite类而不是普通的arcade.Sprite
+                sprite = BossSprite(scale=cfg.GIF_SCALING)
                 sprite.position = pos
                 sprite_lists["boss"].append(sprite)
                 

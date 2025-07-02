@@ -90,3 +90,18 @@ CHEST_CLOSED_PATH = ASSET_PATH / "chest(close).png"
 CHEST_OPEN_PATH = ASSET_PATH / "chest(open).png"
 EXIT_CLOSED_PATH = ASSET_PATH / "exit(close).png"
 EXIT_OPEN_PATH = ASSET_PATH / "exit(open).png"
+
+# === 音乐配置 ===
+MUSIC_PATH = PROJECT_ROOT / "music"
+MUSIC_PATHS = {
+    "background": MUSIC_PATH / "background.mp3",
+    "boss_battle": MUSIC_PATH / "boss_battle.mp3", 
+    "get_gold": MUSIC_PATH / "get_gold.mp3",
+    "unlock_locker": MUSIC_PATH / "unlock-locker.mp3",
+    "step_trap": MUSIC_PATH / "step_trap.mp3",
+    "footstep": MUSIC_PATH / "running-on-grass-26845.mp3",
+}
+
+# 音量设置
+BACKGROUND_VOLUME = 0.3  # 背景音乐音量
+EFFECT_VOLUME = 0.5     # 音效音量

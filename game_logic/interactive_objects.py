@@ -1,5 +1,6 @@
 # game_logic/interactive_objects.py
 import arcade
+import json
 import config as cfg
 
 class ChestSprite(arcade.Sprite):
@@ -49,9 +50,33 @@ class BossSprite(arcade.Sprite):
         texture = str(cfg.BOSS_PATH)
         super().__init__(texture, scale=scale, **kwargs)
         
-        # 示例Boss战斗数据 (之后可以从关卡文件加载)
-        self.boss_hps = [150, 200]
-        self.player_skills = [[20, 2], [50, 5], [10, 0]]
+        # 从test.json文件加载Boss战斗数据
+        self.boss_hps, self.player_skills = self._load_battle_data()
+    
+    def _load_battle_data(self):
+        """从test.json文件加载BOSS HP和玩家技能数据"""
+        try:
+            with open(cfg.PROJECT_ROOT / "test.json", "r", encoding="utf-8") as f:
+                data = json.load(f)
+            
+            boss_hps = data.get("B", [150, 200])  # 默认值作为后备
+            player_skills = data.get("PlayerSkills", [[20, 2], [50, 5], [10, 0]])  # 默认值作为后备
+            
+            print(f"从test.json加载BOSS数据:")
+            print(f"  BOSS HP: {boss_hps}")
+            print(f"  玩家技能: {player_skills}")
+            
+            return boss_hps, player_skills
+            
+        except FileNotFoundError:
+            print("警告: test.json文件未找到，使用默认BOSS数据")
+            return [150, 200], [[20, 2], [50, 5], [10, 0]]
+        except json.JSONDecodeError:
+            print("警告: test.json文件格式错误，使用默认BOSS数据")
+            return [150, 200], [[20, 2], [50, 5], [10, 0]]
+        except Exception as e:
+            print(f"警告: 加载test.json时发生错误: {e}，使用默认BOSS数据")
+            return [150, 200], [[20, 2], [50, 5], [10, 0]]
 
 class ExitSprite(arcade.Sprite):
     """

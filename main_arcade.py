@@ -14,6 +14,7 @@ from game_logic.interactive_objects import ChestSprite, ExitSprite, BossSprite, 
 from game_logic.input_handler import InputHandler
 from game_logic.game_views import PuzzleView
 from game_logic.battle_manager import BattleManager
+from game_logic.audio_manager import audio_manager
 
 
 class MazeGame(arcade.View):
@@ -32,7 +33,7 @@ class MazeGame(arcade.View):
         self.panel_width = self.window.width // 2 # 战斗面板宽度
         self.is_encounter_animation = False
         self.encounter_timer = 0.0
-        self.encounter_duration = 1.5 # 遭遇动画持续时间
+        self.encounter_duration = 1.0 # 遭遇动画持续时间（加速1.5倍）
 
         # --- 摄像机 ---
         self.camera = arcade.Camera(self.window.width, self.window.height)
@@ -88,6 +89,9 @@ class MazeGame(arcade.View):
             self.player_sprite, 
             self.sprite_lists["wall"]
         )
+        
+        # 开始播放背景音乐
+        audio_manager.play_background_music("background")
     
     def on_resize(self, width: int, height: int):
         """当窗口大小改变时调用。"""
@@ -186,6 +190,13 @@ class MazeGame(arcade.View):
             150, self.window.height - 25, 
             cfg.RED, 18
         )
+        
+        # 绘制音乐控制说明
+        arcade.draw_text(
+            "M:切换音乐 N:切换音效", 
+            10, self.window.height - 50, 
+            arcade.color.WHITE, 12
+        )
     
     def on_update(self, delta_time: float) -> None:
         """更新游戏逻辑"""
@@ -231,6 +242,13 @@ class MazeGame(arcade.View):
                 self.end_battle() # 按ESC结束战斗
             else:
                 print("ESC pressed - could open a pause menu.")
+        elif key == arcade.key.M:
+            # M键切换背景音乐开/关
+            audio_manager.toggle_music()
+        elif key == arcade.key.N:
+            # N键切换音效开/关
+            audio_manager.toggle_effects()
+        
         if self.input_handler:
             self.input_handler.on_key_press(key)
     
@@ -295,11 +313,15 @@ class MazeGame(arcade.View):
     def _process_interaction_result(self, interaction_type: str, grid_x: int, grid_y: int) -> None:
         """处理交互结果"""
         if interaction_type == cfg.GOLD:
+            # 播放捡金币音效
+            audio_manager.play_sound_effect("get_gold")
             if self.player_logic:
                 print(f"捡到金币! 当前金币: {self.player_logic.gold}")
             self._remove_sprite_at_position(grid_x, grid_y, "gold")
         
         elif interaction_type == cfg.TRAP:
+            # 播放踩陷阱音效
+            audio_manager.play_sound_effect("step_trap")
             if self.player_logic:
                 print(f"踩到陷阱! 生命值: {self.player_logic.health}")
             self._remove_sprite_at_position(grid_x, grid_y, "trap")
@@ -317,13 +339,24 @@ class MazeGame(arcade.View):
                     # 如果是普通宝箱或已解锁的谜题宝箱
                     typed_chest = cast(ChestSprite, chest_sprite)
                     if not typed_chest.is_open:
+                        # 播放开宝箱音效
+                        audio_manager.play_sound_effect("unlock_locker")
                         typed_chest.open()
                         print("宝箱已打开！")
         
         elif interaction_type == cfg.BOSS:
+            print("发现BOSS!")
             boss_sprite = self._find_sprite_at_position(grid_x, grid_y, "boss")
             if boss_sprite and isinstance(boss_sprite, BossSprite) and not self.is_battle_mode:
+                print("开始战斗...")
                 self.start_battle(boss_sprite)
+            else:
+                if not boss_sprite:
+                    print("未找到BOSS精灵")
+                elif not isinstance(boss_sprite, BossSprite):
+                    print(f"BOSS精灵类型错误: {type(boss_sprite)}")
+                elif self.is_battle_mode:
+                    print("已经在战斗模式中")
         
         elif interaction_type == cfg.EXIT:
             print("恭喜! 找到出口!")
@@ -373,9 +406,17 @@ class MazeGame(arcade.View):
     def start_battle(self, boss_sprite: BossSprite):
         """开始战斗模式 - 现在只触发遭遇动画"""
         print("遭遇Boss，开始播放动画...")
+        # 切换到战斗音乐
+        audio_manager.play_background_music("boss_battle")
         self.is_encounter_animation = True
         self.encounter_timer = 0.0
         self.active_boss_sprite = boss_sprite
+        
+        # 从迷宫中移除BOSS标记，避免重复触发
+        if self.game_maze and self.player_sprite:
+            self.game_maze.set_tile_type(int(self.player_sprite.center_x // cfg.TILE_SIZE), 
+                                         int((self.window.height - self.player_sprite.center_y) // cfg.TILE_SIZE), 
+                                         cfg.PATH)
 
     def _trigger_real_battle(self):
         """遭遇动画结束后，真正设置战斗模式"""
@@ -391,6 +432,8 @@ class MazeGame(arcade.View):
     def end_battle(self):
         """结束战斗模式"""
         print("战斗结束。")
+        # 切换回背景音乐
+        audio_manager.play_background_music("background")
         self.is_battle_mode = False
         
         # 移除已经击败的Boss
@@ -412,6 +455,8 @@ class MazeGame(arcade.View):
     def _restart_game(self) -> None:
         """重新开始游戏"""
         print("重新开始游戏...")
+        # 确保切换回背景音乐
+        audio_manager.play_background_music("background")
         self.setup()
 
 

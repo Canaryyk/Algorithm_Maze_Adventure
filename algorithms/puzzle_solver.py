@@ -55,7 +55,9 @@ def sha256_of_pwd(pwd):
     salt = b'\xb2S"e}\xdf\xb0\xfe\x9c\xde\xde\xfe\xf3\x1d\xdc>'
     return hashlib.sha256(salt + s.encode('utf-8')).hexdigest()
 
-def solve_password(current_password, constraints, digits=range(10), counter=None):
+def solve_password(current_password, constraints, digits=None, counter=None):
+    if digits is None:
+        digits = range(10)
     if counter is None:
         counter = {"attempts": 0}
     if len(current_password) == 3:
@@ -73,7 +75,8 @@ def solve_password(current_password, constraints, digits=range(10), counter=None
 
 def method_a(constraints):
     counter = {"attempts": 0}
-    result = solve_password([], constraints, digits=range(10), counter=counter)
+    digits_desc = list(range(9, -1, -1))  # 9 to 0
+    result = solve_password([], constraints, digits=digits_desc, counter=counter)
     return result, counter["attempts"]
 
 def method_b(constraints):
@@ -161,5 +164,84 @@ def crack_all_files_in_folder(folder_path):
     print(f" Final selected total = min({total_a}, {total_b}, {total_c}) = {min(total_a, total_b, total_c)}")
 
 
+def solve_from_json_file(file_path):
+    """
+    从指定的JSON文件中读取数据并求解密码
+    
+    Args:
+        file_path (str): JSON文件路径
+        
+    Returns:
+        tuple: (密码, 尝试次数, 方法名称) 或 (None, 尝试次数, "None")
+    """
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        
+        print(f"从文件 {file_path} 读取数据:")
+        print(f"  约束条件 C: {data.get('C', [])}")
+        print(f"  目标哈希 L: {data.get('L', '')}")
+        
+        result, attempts, method = try_all_methods(data)
+        
+        if result:
+            password_str = ''.join(str(d) for d in result)
+            print(f"  求解成功: 密码 = {password_str}, 尝试次数 = {attempts}")
+            return result, attempts, method
+        else:
+            print(f"  求解失败: 未找到有效密码, 总尝试次数 = {attempts}")
+            return None, attempts, "None"
+            
+    except FileNotFoundError:
+        print(f"错误: 文件 {file_path} 未找到")
+        return None, 0, "FileNotFound"
+    except json.JSONDecodeError:
+        print(f"错误: 文件 {file_path} 格式错误")
+        return None, 0, "JSONError"
+    except Exception as e:
+        print(f"错误: 处理文件 {file_path} 时发生异常: {e}")
+        return None, 0, "Exception"
+
+
+def solve_from_data(data):
+    """
+    从数据字典中读取并求解密码
+    
+    Args:
+        data (dict): 包含 C 和 L 字段的数据字典
+        
+    Returns:
+        tuple: (密码, 尝试次数, 方法名称) 或 (None, 尝试次数, "None")
+    """
+    print(f"从数据中读取:")
+    print(f"  约束条件 C: {data.get('C', [])}")
+    print(f"  目标哈希 L: {data.get('L', '')}")
+    
+    result, attempts, method = try_all_methods(data)
+    
+    if result:
+        password_str = ''.join(str(d) for d in result)
+        print(f"  求解成功: 密码 = {password_str}, 尝试次数 = {attempts}")
+        return result, attempts, method
+    else:
+        print(f"  求解失败: 未找到有效密码, 总尝试次数 = {attempts}")
+        return None, attempts, "None"
+
+
 if __name__ == "__main__":
-    crack_all_files_in_folder(r"C:\Users\35883\Desktop\test")
+    # 测试从test.json文件读取
+    test_file = "test.json"
+    if os.path.exists(test_file):
+        print("=== 从test.json文件求解 ===")
+        solve_from_json_file(test_file)
+    else:
+        print("test.json文件不存在，尝试处理test文件夹...")
+        if os.path.exists("test"):
+            crack_all_files_in_folder("test")
+        else:
+            print("test文件夹也不存在")
+    
+    # 也可以尝试相对路径
+    if os.path.exists("../test"):
+        print("\n=== 处理../test文件夹 ===")
+        crack_all_files_in_folder("../test")
