@@ -1,71 +1,79 @@
-# config.py
+"""
+游戏配置文件 - 核心迷宫游戏配置
+"""
 
-# 颜色定义
-BLACK = (0, 0, 0)
-YELLOW = (255, 215, 0) # 使用金黄色 (Gold)
-RED = (220, 20, 60) # 使用猩红色 (Crimson)
+import pathlib
+from typing import Dict
 
-#import pygame
+# === 项目路径配置 ===
+PROJECT_ROOT = pathlib.Path(__file__).parent.resolve()
+ASSET_PATH = PROJECT_ROOT / "image"
 
-# 屏幕与显示设置
+# === 颜色常量 ===
+YELLOW = (255, 215, 0)  # 金黄色
+RED = (220, 20, 60)  # 猩红色
+
+# === 屏幕与显示设置 ===
 SCREEN_WIDTH = 750
-SCREEN_HEIGHT = 750 # 稍微增加高度以容纳HUD
+SCREEN_HEIGHT = 750
 GAME_TITLE = "算法迷宫探险"
-FPS = 60
 
-# 迷宫网格设置
-TILE_SIZE = 45 # 稍微增大格子尺寸，让物品更清晰
-MAZE_WIDTH = 15 # 迷宫宽度 (格子数)
-MAZE_HEIGHT = 15 # 迷宫高度 (格子数)
+# === 迷宫设置 ===
+TILE_SIZE = 45  # 每个格子的像素大小
+MAZE_WIDTH = 15  # 迷宫宽度（格子数）
+MAZE_HEIGHT = 15  # 迷宫高度（格子数）
 
-
-# 玩家设置
+# === 玩家设置 ===
 PLAYER_MAX_HEALTH = 100
 PLAYER_SPEED = 4
 
-# 游戏数值
-TRAP_DAMAGE = 25
-GOLD_VALUE = 10
+# === 游戏数值 ===
+TRAP_DAMAGE = 30
+GOLD_VALUE = 50
 
-# 迷宫地图元素符号 (用于内部数据表示)
-PATH = ' '
-WALL = '#'
-START = 'S'
-EXIT = 'E'
-GOLD = 'G'
-TRAP = 'T'
-LOCKER = 'L'
-BOSS = 'B'
+# === 地图元素符号 ===
+PATH = ' '     # 可通行路径
+WALL = '#'     # 墙壁
+START = 'S'    # 起点
+EXIT = 'E'     # 终点
+GOLD = 'G'     # 金币
+TRAP = 'T'     # 陷阱
+LOCKER = 'L'   # 宝箱
+BOSS = 'B'     # BOSS
 
-# 地图元素数值映射 (用于算法处理)
-ELEMENT_MAPPING = {
-    PATH: 0,    # 可通行路径
-    WALL: 1,    # 不可通行墙壁
-    START: 2,   # 起点
-    EXIT: 3,    # 终点
-    GOLD: 4,    # 金币
-    TRAP: 5,    # 陷阱
-    LOCKER: 6,  # 密码锁
-    BOSS: 7     # BOSS战
+# === 图像缩放配置 ===
+PNG_SPRITE_SIZE = 96  # PNG图片的实际尺寸
+GIF_SPRITE_SIZE = 512  # GIF图片的实际尺寸
+
+# 缩放系数计算
+PNG_SCALING = TILE_SIZE / PNG_SPRITE_SIZE
+GIF_SCALING = TILE_SIZE / GIF_SPRITE_SIZE
+
+# === 资源路径配置 ===
+# 玩家动画GIF路径
+PLAYER_ANIM_PATHS: Dict[str, pathlib.Path] = {
+    "down": ASSET_PATH / "down.gif",
+    "up": ASSET_PATH / "up.gif",
+    "left": ASSET_PATH / "left.gif",
+    "right": ASSET_PATH / "right.gif",
 }
 
-# --- 新增：视觉与动画常量 ---
+# 环境素材路径
+WALL_PATH = ASSET_PATH / "wall.png"
+GRASS_PATHS = [
+    ASSET_PATH / "grass1.png",
+    ASSET_PATH / "grass2.png",
+    ASSET_PATH / "grass3.png",
+    ASSET_PATH / "grass4.png"
+]
 
-# 精灵图集路径
-PLAYER_SPRITESHEET_PATH = "Sprout Lands - Sprites - Basic pack/Characters/Basic Charakter Spritesheet.png"
+# 物品素材路径
+GOLD_PATH = ASSET_PATH / "coin.gif"
+TRAP_PATH = ASSET_PATH / "trap.png"
+BOSS_PATH = ASSET_PATH / "Chicken Sprites.gif"
 
-# 精灵原始尺寸
-SPRITE_PIXEL_SIZE = 16
-
-# 玩家动画设置
-PLAYER_ANIMATION_FRAMES = 4
-CHAR_ANIM_DOWN = 0
-CHAR_ANIM_LEFT = 1
-CHAR_ANIM_RIGHT = 2
-CHAR_ANIM_UP = 3
-PLAYER_ANIMATION_SPEED = 0.15 # 切换动画帧的秒数
-
-# 缩放与缓动
-TILE_SCALING = TILE_SIZE / SPRITE_PIXEL_SIZE
-PLAYER_SCALING = TILE_SCALING
-LERP_FACTOR = 0.1
+# 交互对象路径
+CHEST_CLOSED_PATH = ASSET_PATH / "chest(close).png"
+CHEST_OPEN_PATH = ASSET_PATH / "chest(open).png"
+EXIT_CLOSED_PATH = ASSET_PATH / "exit(close).png"
+EXIT_OPEN_PATH = ASSET_PATH / "exit(open).png"

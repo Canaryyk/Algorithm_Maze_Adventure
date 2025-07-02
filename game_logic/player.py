@@ -1,78 +1,66 @@
+"""
+玩家模块 - 核心迷宫游戏玩家功能
+"""
+
 import arcade
+from typing import Dict, Tuple, Optional
 import config as cfg
-#player.py
 
 
 class PlayerSprite(arcade.Sprite):
-    def __init__(self, start_pos):
+    """玩家精灵类，负责玩家的视觉呈现"""
+    
+    def __init__(self, start_pos: Tuple[float, float]):
+        """初始化玩家精灵"""
+        super().__init__(scale=cfg.GIF_SCALING)
+        
+        # 加载所有方向的纹理
         self._load_textures()
-        initial_texture = self.idle_textures["down"][0]
-        super().__init__(texture=initial_texture, scale=cfg.PLAYER_SCALING)
-        self.position = start_pos
-        self.direction = "down"
-        self.animation_timer = 0
-        self.current_frame = 0
         
-        # --- (新增) 诊断代码 ---
-        # 在创建后立即检查自己是否有效
-        assert self.texture is not None and self.hit_box is not None, "PlayerSprite 创建失败，成为了一个幽灵精灵！"
-        print("诊断信息: PlayerSprite 创建成功，碰撞箱有效。")
-
+        # 设置初始状态
+        self.direction = 'down'
+        self.texture = self.walk_textures[self.direction]
         
-    def _load_textures(self):
-        """从图集中加载玩家动画纹理"""
-        # 将 idle_textures 也定义为列表，以保持数据结构统一
-        self.walk_textures = {}
-        self.idle_textures = {}
-        
-        all_frames = arcade.load_spritesheet(
-            cfg.PLAYER_SPRITESHEET_PATH,
-            sprite_width=cfg.SPRITE_PIXEL_SIZE,
-            sprite_height=cfg.SPRITE_PIXEL_SIZE,
-            columns=cfg.PLAYER_ANIMATION_FRAMES,
-            count=cfg.PLAYER_ANIMATION_FRAMES * 4
+        # 设置碰撞箱
+        self.hit_box = (
+            (-cfg.TILE_SIZE * 0.3, -cfg.TILE_SIZE * 0.4),
+            (cfg.TILE_SIZE * 0.3, -cfg.TILE_SIZE * 0.4),
+            (cfg.TILE_SIZE * 0.3, cfg.TILE_SIZE * 0.2),
+            (-cfg.TILE_SIZE * 0.3, cfg.TILE_SIZE * 0.2)
         )
-        self.walk_textures["down"] = all_frames[cfg.CHAR_ANIM_DOWN*4 : cfg.CHAR_ANIM_DOWN*4 + 4]
-        self.walk_textures["left"] = all_frames[cfg.CHAR_ANIM_LEFT*4 : cfg.CHAR_ANIM_LEFT*4 + 4]
-        self.walk_textures["right"] = all_frames[cfg.CHAR_ANIM_RIGHT*4 : cfg.CHAR_ANIM_RIGHT*4 + 4]
-        self.walk_textures["up"] = all_frames[cfg.CHAR_ANIM_UP*4 : cfg.CHAR_ANIM_UP*4 + 4]
         
-        # 待机动画也使用列表，即使只有一帧
-        self.idle_textures["down"] = [all_frames[cfg.CHAR_ANIM_DOWN*4]]
-        self.idle_textures["left"] = [all_frames[cfg.CHAR_ANIM_LEFT*4]]
-        self.idle_textures["right"] = [all_frames[cfg.CHAR_ANIM_RIGHT*4]]
-        self.idle_textures["up"] = [all_frames[cfg.CHAR_ANIM_UP*4]]
-
-    def update_animation(self, delta_time: float, target_speed_x: float, target_speed_y: float):
-        """根据玩家速度和方向更新动画"""
+        self.position = start_pos
+    
+    def _load_textures(self) -> None:
+        """加载各方向纹理"""
+        self.walk_textures: Dict[str, arcade.Texture] = {}
+        for direction, path in cfg.PLAYER_ANIM_PATHS.items():
+            self.walk_textures[direction] = arcade.load_texture(str(path))
+            
+    def update_player_animation(self, target_speed_x: float, target_speed_y: float) -> None:
+        """根据移动方向切换纹理"""
         is_moving = target_speed_x != 0 or target_speed_y != 0
-
-        # 更新方向
-        if target_speed_y > 0: self.direction = "up"
-        elif target_speed_y < 0: self.direction = "down"
-        elif target_speed_x < 0: self.direction = "left"
-        elif target_speed_x > 0: self.direction = "right"
         
-        # 更新动画帧
-        if is_moving:
-            textures_to_use = self.walk_textures[self.direction]
-            self.animation_timer += delta_time
-            if self.animation_timer > cfg.PLAYER_ANIMATION_SPEED:
-                self.animation_timer = 0
-                self.current_frame = (self.current_frame + 1) % len(textures_to_use)
-                self.texture = textures_to_use[self.current_frame]
+        if not is_moving:
+            return
+            
+        # 判断新方向
+        if abs(target_speed_y) > abs(target_speed_x):
+            new_direction = "up" if target_speed_y > 0 else "down"
         else:
-            self.animation_timer = 0
-            self.current_frame = 0
-            self.texture = self.idle_textures[self.direction][0]
+            new_direction = "right" if target_speed_x > 0 else "left"
+            
+        # 切换纹理
+        if new_direction != self.direction:
+            self.direction = new_direction
+            self.texture = self.walk_textures[self.direction]
 
 
 class Player:
-    """
-    玩家逻辑类 - 与图形库无关的纯逻辑实现
-    负责管理玩家状态、位置和交互逻辑
-    """
-    def __init__(self, start_x, start_y, maze):
+    """玩家逻辑类 - 核心迷宫游戏功能"""
+    
+    def __init__(self, start_x: int, start_y: int, maze):
+        """初始化玩家"""
         # 玩家属性
         self.health = cfg.PLAYER_MAX_HEALTH
         self.gold = 0
@@ -81,59 +69,23 @@ class Player:
         self.grid_x = start_x
         self.grid_y = start_y
         
-        # 存储迷宫引用，用于碰撞检测和交互
+        # 迷宫引用
         self.maze = maze
-
-        # 玩家移动状态
-        self.change_x = 0
-        self.change_y = 0
-
-    def get_pixel_position(self):
-        """获取玩家的像素坐标位置"""
-        return (
-            self.grid_x * cfg.TILE_SIZE + cfg.TILE_SIZE // 2,
-            self.grid_y * cfg.TILE_SIZE + cfg.TILE_SIZE // 2
-        )
-
-    def set_grid_position(self, grid_x, grid_y):
-        """设置玩家的网格坐标位置"""
+    
+    def set_grid_position(self, grid_x: int, grid_y: int) -> None:
+        """设置玩家网格坐标"""
         self.grid_x = grid_x
         self.grid_y = grid_y
-
-    def update_from_pixel_position(self, pixel_x, pixel_y):
-        """从像素坐标更新网格坐标"""
-        self.grid_x = int(pixel_x // cfg.TILE_SIZE)
-        self.grid_y = int(pixel_y // cfg.TILE_SIZE)
-
-    def is_colliding_with_wall(self, grid_x, grid_y):
-        """
-        检查给定网格坐标是否与墙壁碰撞
-        """
-        # 检查边界
-        if not (0 <= grid_x < self.maze.width and 0 <= grid_y < self.maze.height):
-            return True # 视为与边界墙壁碰撞
-
-        # 检查是否撞墙
-        if self.maze.grid[grid_y][grid_x] == cfg.WALL:
-            return True
-        
-        return False
-
-    def can_move_to(self, grid_x, grid_y):
-        """检查是否可以移动到指定网格坐标"""
-        return not self.is_colliding_with_wall(grid_x, grid_y)
-
-    def handle_interaction(self, grid_x=None, grid_y=None):
-        """
-        处理玩家与脚下格子的交互事件，返回交互的类型
-        """
+    
+    def handle_interaction(self, grid_x: Optional[int] = None, grid_y: Optional[int] = None) -> Optional[str]:
+        """处理玩家交互事件"""
         if grid_x is None:
             grid_x = self.grid_x
         if grid_y is None:
             grid_y = self.grid_y
-            
+        
         tile_type = self.maze.get_tile_type(grid_x, grid_y)
-
+        
         if tile_type == cfg.GOLD:
             self.gold += cfg.GOLD_VALUE
             self.maze.set_tile_type(grid_x, grid_y, cfg.PATH)
@@ -144,33 +96,12 @@ class Player:
             self.maze.set_tile_type(grid_x, grid_y, cfg.PATH)
             return cfg.TRAP
         
-        elif tile_type == cfg.LOCKER:
-            return cfg.LOCKER
-            
-        elif tile_type == cfg.BOSS:
-            return cfg.BOSS
-
-        elif tile_type == cfg.EXIT:
-            return cfg.EXIT
-
+        elif tile_type in [cfg.LOCKER, cfg.BOSS, cfg.EXIT]:
+            return tile_type
+        
         return None
-
-    def is_dead(self):
-        """检查玩家是否死亡"""
-        return self.health <= 0
-
-    def reset(self):
+    
+    def reset(self) -> None:
         """重置玩家状态"""
         self.health = cfg.PLAYER_MAX_HEALTH
         self.gold = 0
-        self.change_x = 0
-        self.change_y = 0
-
-    def get_status(self):
-        """获取玩家状态信息"""
-        return {
-            'health': self.health,
-            'gold': self.gold,
-            'position': (self.grid_x, self.grid_y),
-            'pixel_position': self.get_pixel_position()
-        }
