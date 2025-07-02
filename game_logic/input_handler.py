@@ -32,6 +32,10 @@ class InputHandler:
         if key in self.key_mappings:
             self.pressed_keys.discard(key)
     
+    def reset(self) -> None:
+        """重置所有按键状态。"""
+        self.pressed_keys.clear()
+
     def get_movement_vector(self) -> Tuple[int, int]:
         """获取当前移动向量"""
         speed_x = 0

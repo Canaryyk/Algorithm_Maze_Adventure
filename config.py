@@ -58,8 +58,21 @@ PLAYER_ANIM_PATHS: Dict[str, pathlib.Path] = {
     "right": ASSET_PATH / "right.gif",
 }
 
-# 环境素材路径
-WALL_PATH = ASSET_PATH / "wall.png"
+# 环境素材路径 - 智能墙壁系统
+WALL_PATHS = {
+    "horizontal_middle": ASSET_PATH / "wall_horizontal_middle.png",
+    "vertical_middle": ASSET_PATH / "wall_vertical_middle.png", 
+    "vertical_bottom": ASSET_PATH / "wall_vertical_bottom.png",
+    "vertical_top": ASSET_PATH / "wall_vertical_top.png",
+    "left_bottom": ASSET_PATH / "wall_left_bottom.png",
+    "left_top": ASSET_PATH / "wall_left_top.png",
+    "right_bottom": ASSET_PATH / "wall_right_bottom.png",
+    "right_top": ASSET_PATH / "wall_right_top.png",
+    "T_type": ASSET_PATH / "wall_T_type.png",
+}
+
+# 向后兼容的默认墙壁路径
+WALL_PATH = WALL_PATHS["horizontal_middle"]
 GRASS_PATHS = [
     ASSET_PATH / "grass1.png",
     ASSET_PATH / "grass2.png",

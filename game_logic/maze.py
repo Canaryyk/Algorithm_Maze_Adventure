@@ -11,7 +11,7 @@ from algorithms.maze_generator import generate_recursive_division_maze
 class Maze:
     """迷宫数据模型类，负责迷宫生成和物品放置"""
     
-    def __init__(self, width: int, height: int, use_generated: bool = True):
+    def __init__(self, width: int, height: int, use_generated: bool ):
         """初始化迷宫"""
         self.width = width
         self.height = height

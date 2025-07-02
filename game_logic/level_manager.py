@@ -11,10 +11,10 @@ def _pos_from_grid(grid_x, grid_y, window_height):
         window_height - (grid_y * cfg.TILE_SIZE + cfg.TILE_SIZE / 2)
     )
 
-def _get_wall_rotation(maze_grid, row, col):
+def _get_wall_type_and_rotation(maze_grid, row, col):
     """
-    根据墙壁周围的邻居情况计算合适的旋转角度
-    智能分析连接模式，使墙壁能够自然连接
+    根据墙壁周围的邻居情况选择合适的墙壁类型和旋转角度
+    精确分析每种连接模式，选择最佳的墙壁素材
     
     Args:
         maze_grid: 迷宫网格
@@ -22,7 +22,7 @@ def _get_wall_rotation(maze_grid, row, col):
         col: 当前墙壁的列位置
     
     Returns:
-        float: 旋转角度（度）
+        tuple: (墙壁类型key, 旋转角度)
     """
     height = len(maze_grid)
     width = len(maze_grid[0]) if height > 0 else 0
@@ -33,76 +33,73 @@ def _get_wall_rotation(maze_grid, row, col):
     left = col > 0 and maze_grid[row][col - 1] == cfg.WALL
     right = col < width - 1 and maze_grid[row][col + 1] == cfg.WALL
     
-    # 统计连接数量和方向
-    horizontal_connections = left + right  # 左右连接数
-    vertical_connections = up + down       # 上下连接数
-    total_connections = horizontal_connections + vertical_connections
+    # 统计连接数量
+    connection_count = sum([up, down, left, right])
     
-    # 判断是否为边界墙
-    is_boundary = (row == 0 or row == height - 1 or 
-                  col == 0 or col == width - 1)
+    # 根据连接模式精确选择墙壁类型
+    if connection_count == 0:
+        # 孤立墙壁 - 默认使用水平中段墙
+        return "horizontal_middle", 0.0
     
-    # 智能旋转逻辑
-    if total_connections == 0:
-        # 孤立墙壁：根据位置决定默认方向
-        if is_boundary:
-            # 边界孤立墙：根据边界位置决定
-            if row == 0 or row == height - 1:
-                return 0.0  # 顶部/底部边界，水平方向
-            else:
-                return 90.0  # 左右边界，垂直方向
+    elif connection_count == 1:
+        # 端点墙壁 - 根据连接方向选择合适的端点素材
+        if up:
+            # 只有上方连接 - 墙壁底部，使用垂直底部墙
+            return "vertical_bottom", 0.0
+        elif down:
+            # 只有下方连接 - 墙壁顶部，使用垂直顶部墙
+            return "vertical_top", 0.0
+        elif left:
+            # 只有左方连接 - 墙壁右端，使用水平中段墙
+            return "horizontal_middle", 0.0
+        elif right:
+            # 只有右方连接 - 墙壁左端，使用水平中段墙
+            return "horizontal_middle", 0.0
+    
+    elif connection_count == 2:
+        # 两个连接：直线墙或转角墙
+        if up and down:
+            # 垂直直线墙 - 使用垂直中段墙
+            return "vertical_middle", 0.0
+        elif left and right:
+            # 水平直线墙 - 使用水平中段墙
+            return "horizontal_middle", 0.0
         else:
-            return 0.0  # 内部孤立墙，默认水平
+            # 转角墙 - 每种转角都有专用素材，无需旋转
+            if down and left:
+                # ┌ 上右转角 - 使用右上转角
+                return "right_top", 0.0
+            elif down and right:
+                # ┐ 上左转角 - 使用左上转角
+                return "left_top", 0.0
+            elif up and left:
+                # └ 下右转角 - 使用右下转角
+                return "right_bottom", 0.0
+            elif up and right:
+                # ┘ 下左转角 - 使用左下转角
+                return "left_bottom", 0.0
     
-    elif total_connections == 1:
-        # 端点墙壁：根据连接方向决定
-        if up or down:
-            return 90.0  # 垂直连接
-        else:
-            return 0.0   # 水平连接
-    
-    elif total_connections == 2:
-        # 两个连接：判断是直线还是转角
-        if vertical_connections == 2:
-            # 上下都连接：垂直墙
-            return 90.0
-        elif horizontal_connections == 2:
-            # 左右都连接：水平墙
-            return 0.0
-        else:
-            # 转角情况：优先考虑主要连接方向
-            # 如果是边界转角，根据边界方向决定
-            if is_boundary:
-                if row == 0 or row == height - 1:
-                    return 0.0  # 顶部/底部边界转角，水平优先
-                else:
-                    return 90.0  # 左右边界转角，垂直优先
-            else:
-                # 内部转角：根据迷宫结构趋势决定
-                # 检查更远的邻居来判断趋势
-                far_up = row > 1 and maze_grid[row - 2][col] == cfg.WALL
-                far_down = row < height - 2 and maze_grid[row + 2][col] == cfg.WALL
-                far_left = col > 1 and maze_grid[row][col - 2] == cfg.WALL
-                far_right = col < width - 2 and maze_grid[row][col + 2] == cfg.WALL
-                
-                extended_vertical = far_up or far_down
-                extended_horizontal = far_left or far_right
-                
-                if extended_vertical and not extended_horizontal:
-                    return 90.0
-                elif extended_horizontal and not extended_vertical:
-                    return 0.0
-                else:
-                    # 默认根据第一个连接方向
-                    return 90.0 if (up or down) else 0.0
+    elif connection_count == 3:
+        # T型连接 - 只有缺少上连接的使用专用T型素材，其他保持原逻辑
+        if not up:
+            # ┬ 缺少上连接，下左右都有 - 使用专用T型素材
+            return "T_type", 0.0
+        elif not down:
+            # ┴ 缺少下连接，上左右都有 - 使用水平主干
+            return "horizontal_middle", 0.0
+        elif not left:
+            # ├ 缺少左连接，上下右都有 - 使用垂直主干
+            return "vertical_middle", 0.0
+        elif not right:
+            # ┤ 缺少右连接，上下左都有 - 使用垂直主干
+            return "vertical_middle", 0.0
     
     else:
-        # 三个或四个连接：十字路口
-        # 根据主要连接方向决定
-        if vertical_connections >= horizontal_connections:
-            return 90.0  # 垂直为主
-        else:
-            return 0.0   # 水平为主
+        # 四个连接：┼ 十字路口 - 使用垂直中段作为主要结构
+        return "vertical_middle", 0.0
+    
+    # 默认情况 - 应该不会到达这里
+    return "horizontal_middle", 0.0
 
 def setup_level(game_maze, window_height):
     """
@@ -133,12 +130,15 @@ def setup_level(game_maze, window_height):
             sprite_lists["floor"].append(floor)
 
             if tile_type == cfg.WALL:
-                # 创建智能墙壁，根据邻居情况调整旋转
-                sprite = arcade.Sprite(str(cfg.WALL_PATH), cfg.PNG_SCALING)
-                sprite.position = pos
+                # 创建智能墙壁，根据邻居情况选择合适的墙壁类型
+                wall_type, rotation_angle = _get_wall_type_and_rotation(game_maze.grid, r, c)
                 
-                # 计算并应用旋转角度
-                rotation_angle = _get_wall_rotation(game_maze.grid, r, c)
+                # 获取对应的墙壁素材路径
+                wall_path = cfg.WALL_PATHS.get(wall_type, cfg.WALL_PATHS["horizontal_middle"])
+                
+                # 创建墙壁精灵
+                sprite = arcade.Sprite(str(wall_path), cfg.PNG_SCALING)
+                sprite.position = pos
                 sprite.angle = rotation_angle
                 
                 sprite_lists["wall"].append(sprite)

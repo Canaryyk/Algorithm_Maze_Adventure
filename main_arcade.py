@@ -10,22 +10,37 @@ import config as cfg
 from game_logic.maze import Maze
 from game_logic.player import Player, PlayerSprite
 from game_logic.level_manager import setup_level
-from game_logic.interactive_objects import ChestSprite, ExitSprite
+from game_logic.interactive_objects import ChestSprite, ExitSprite, BossSprite, PuzzleChestSprite
 from game_logic.input_handler import InputHandler
+from game_logic.game_views import PuzzleView
+from game_logic.battle_manager import BattleManager
 
 
-class MazeGame(arcade.Window):
+class MazeGame(arcade.View):
     """
-    迷宫游戏主窗口类
+    迷宫游戏主视图类
     核心功能：起点→迷宫→收集→陷阱→机关→BOSS→终点
     """
     
-    def __init__(self, width: int, height: int, title: str):
-        """初始化游戏窗口"""
-        super().__init__(width, height, title)
+    def __init__(self, window: arcade.Window):
+        """初始化游戏视图"""
+        super().__init__(window)
         
+        # --- 游戏状态 ---
+        self.is_battle_mode = False
+        self.active_boss_sprite: Optional[BossSprite] = None
+        self.panel_width = self.window.width // 2 # 战斗面板宽度
+        self.is_encounter_animation = False
+        self.encounter_timer = 0.0
+        self.encounter_duration = 1.5 # 遭遇动画持续时间
+
+        # --- 摄像机 ---
+        self.camera = arcade.Camera(self.window.width, self.window.height)
+        self.gui_camera = arcade.Camera(self.window.width, self.window.height)
+
         # 核心组件
         self.input_handler: Optional[InputHandler] = None
+        self.battle_manager: BattleManager = BattleManager(self.gui_camera, self.window)
         
         # 游戏对象
         self.game_maze: Optional[Maze] = None
@@ -42,8 +57,18 @@ class MazeGame(arcade.Window):
         # 设置背景色为黑色
         arcade.set_background_color((0, 0, 0))
     
+    def on_show_view(self):
+        """当视图显示时调用"""
+        arcade.set_background_color((0, 0, 0))
+        # 重置输入处理器的状态，防止角色在视图切换后继续移动
+        if self.input_handler:
+            self.input_handler.reset()
+    
     def setup(self) -> None:
         """设置游戏资源和初始状态"""
+        # 确保UI管理器被启用
+        self.battle_manager.ui_manager.enable()
+
         # 初始化输入处理
         self.input_handler = InputHandler()
         
@@ -51,7 +76,7 @@ class MazeGame(arcade.Window):
         self.game_maze = Maze(cfg.MAZE_WIDTH, cfg.MAZE_HEIGHT, use_generated=False)
         
         # 创建关卡精灵
-        self.sprite_lists, player_start_pos = setup_level(self.game_maze, self.height)
+        self.sprite_lists, player_start_pos = setup_level(self.game_maze, self.window.height)
         
         # 创建玩家
         start_x, start_y = self.game_maze.get_start_position()
@@ -64,10 +89,26 @@ class MazeGame(arcade.Window):
             self.sprite_lists["wall"]
         )
     
+    def on_resize(self, width: int, height: int):
+        """当窗口大小改变时调用。"""
+        super().on_resize(width, height)
+        self.camera.resize(width, height)
+        self.gui_camera.resize(width, height)
+
+        if self.is_battle_mode:
+            # 战斗模式下，游戏相机只显示左侧迷宫区域
+            self.camera.viewport = (0, 0, width - self.panel_width, height)
+        else:
+            # 普通模式下，相机覆盖整个窗口
+            self.camera.viewport = (0, 0, width, height)
+
     def on_draw(self) -> None:
         """绘制游戏画面"""
-        arcade.start_render()
-        
+        self.clear()
+
+        # 激活游戏主摄像机
+        self.camera.use()
+
         # 绘制游戏层（按顺序）
         render_order = ["floor", "wall", "decoration", "gold", "trap", "exit", "locker", "boss"]
         for layer_name in render_order:
@@ -78,8 +119,53 @@ class MazeGame(arcade.Window):
         # 绘制玩家
         if self.player_sprite:
             self.player_sprite.draw()
+
+        # 激活GUI摄像机
+        self.gui_camera.use()
         
-        # 绘制简单HUD
+        # 绘制HUD和战斗面板
+        self._draw_hud_and_panels()
+    
+    def _draw_hud_and_panels(self) -> None:
+        """根据游戏模式绘制HUD和侧边面板"""
+        if self.is_encounter_animation:
+            # 绘制遭遇动画
+            arcade.draw_lrtb_rectangle_filled(
+                left=0, right=self.window.width, top=self.window.height, bottom=0,
+                color=(0, 0, 0, 180) # 半透明黑色背景
+            )
+            arcade.draw_text(
+                "遭遇 BOSS！",
+                self.window.width / 2,
+                self.window.height / 2,
+                arcade.color.RED_DEVIL,
+                font_size=70,
+                font_name="SimHei", # 使用黑体
+                bold=True,
+                anchor_x="center",
+                anchor_y="center"
+            )
+            return # 遭遇动画时，不绘制其他面板
+
+        if self.is_battle_mode:
+            # 绘制战斗面板背景
+            arcade.draw_lrtb_rectangle_filled(
+                left=self.window.width - self.panel_width,
+                right=self.window.width,
+                top=self.window.height,
+                bottom=0,
+                color=(40, 40, 40, 200) # 半透明深灰色
+            )
+            arcade.draw_text("战斗面板", 
+                             self.window.width - self.panel_width / 2, 
+                             self.window.height - 40, 
+                             arcade.color.WHITE, 
+                             font_size=20, 
+                             anchor_x="center")
+            # 绘制战斗面板内容
+            self.battle_manager.on_draw()
+
+        # 绘制通用HUD
         self._draw_hud()
     
     def _draw_hud(self) -> None:
@@ -90,19 +176,30 @@ class MazeGame(arcade.Window):
         # 绘制金币数量
         arcade.draw_text(
             f"金币: {self.player_logic.gold}", 
-            10, self.height - 25, 
+            10, self.window.height - 25, 
             cfg.YELLOW, 18
         )
         
         # 绘制生命值
         arcade.draw_text(
             f"生命值: {self.player_logic.health}", 
-            150, self.height - 25, 
+            150, self.window.height - 25, 
             cfg.RED, 18
         )
     
     def on_update(self, delta_time: float) -> None:
         """更新游戏逻辑"""
+        if self.is_encounter_animation:
+            self.encounter_timer += delta_time
+            if self.encounter_timer > self.encounter_duration:
+                self.is_encounter_animation = False
+                self._trigger_real_battle() # 计时结束后，真正开始战斗
+            return
+
+        if self.is_battle_mode:
+            self.battle_manager.on_update(delta_time)
+            return # 战斗时，暂停游戏世界的大部分更新
+
         if not self._validate_game_components():
             return
         
@@ -123,9 +220,17 @@ class MazeGame(arcade.Window):
         
         # 检查游戏结束条件
         self._check_game_over()
+        
+        # 根据玩家位置更新摄像机
+        # self._center_camera_on_player() # 已禁用
     
     def on_key_press(self, key: int, modifiers: int) -> None:
         """处理按键按下事件"""
+        if key == arcade.key.ESCAPE:
+            if self.is_battle_mode:
+                self.end_battle() # 按ESC结束战斗
+            else:
+                print("ESC pressed - could open a pause menu.")
         if self.input_handler:
             self.input_handler.on_key_press(key)
     
@@ -175,7 +280,7 @@ class MazeGame(arcade.Window):
         
         # 转换为网格坐标
         grid_x = int(self.player_sprite.center_x // cfg.TILE_SIZE)
-        grid_y = int((self.height - self.player_sprite.center_y) // cfg.TILE_SIZE)
+        grid_y = int((self.window.height - self.player_sprite.center_y) // cfg.TILE_SIZE)
         
         # 检查坐标有效性
         if not self.game_maze.is_valid_position(grid_x, grid_y):
@@ -203,11 +308,22 @@ class MazeGame(arcade.Window):
             print("发现宝箱!")
             chest_sprite = self._find_sprite_at_position(grid_x, grid_y, "locker")
             if chest_sprite:
-                typed_chest = cast(ChestSprite, chest_sprite)
-                typed_chest.open()
+                # 检查是否是谜题宝箱并且已上锁
+                if isinstance(chest_sprite, PuzzleChestSprite) and chest_sprite.is_locked:
+                    print("这是一个带锁的谜题宝箱，切换到解谜场景...")
+                    puzzle_view = PuzzleView(self, chest_sprite) # 传递宝箱精灵
+                    self.window.show_view(puzzle_view)
+                elif not getattr(chest_sprite, 'is_locked', False):
+                    # 如果是普通宝箱或已解锁的谜题宝箱
+                    typed_chest = cast(ChestSprite, chest_sprite)
+                    if not typed_chest.is_open:
+                        typed_chest.open()
+                        print("宝箱已打开！")
         
         elif interaction_type == cfg.BOSS:
-            print("遭遇BOSS! (战斗系统待实现)")
+            boss_sprite = self._find_sprite_at_position(grid_x, grid_y, "boss")
+            if boss_sprite and isinstance(boss_sprite, BossSprite) and not self.is_battle_mode:
+                self.start_battle(boss_sprite)
         
         elif interaction_type == cfg.EXIT:
             print("恭喜! 找到出口!")
@@ -248,27 +364,67 @@ class MazeGame(arcade.Window):
         return False
     
     def _grid_to_pixel_position(self, grid_x: int, grid_y: int) -> tuple:
-        """将网格坐标转换为像素坐标"""
+        """将网格坐标转换为屏幕像素坐标。"""
         return (
-            grid_x * cfg.TILE_SIZE + cfg.TILE_SIZE // 2,
-            self.height - (grid_y * cfg.TILE_SIZE + cfg.TILE_SIZE // 2)
+            grid_x * cfg.TILE_SIZE + cfg.TILE_SIZE / 2,
+            self.window.height - (grid_y * cfg.TILE_SIZE + cfg.TILE_SIZE / 2)
         )
     
+    def start_battle(self, boss_sprite: BossSprite):
+        """开始战斗模式 - 现在只触发遭遇动画"""
+        print("遭遇Boss，开始播放动画...")
+        self.is_encounter_animation = True
+        self.encounter_timer = 0.0
+        self.active_boss_sprite = boss_sprite
+
+    def _trigger_real_battle(self):
+        """遭遇动画结束后，真正设置战斗模式"""
+        print("动画结束，正式进入战斗！")
+        self.is_battle_mode = True
+        
+        # 拓宽窗口
+        self.window.set_size(cfg.SCREEN_WIDTH + self.panel_width, cfg.SCREEN_HEIGHT)
+        
+        if self.active_boss_sprite:
+            self.battle_manager.setup_battle(self.active_boss_sprite)
+
+    def end_battle(self):
+        """结束战斗模式"""
+        print("战斗结束。")
+        self.is_battle_mode = False
+        
+        # 移除已经击败的Boss
+        if self.active_boss_sprite:
+            self.active_boss_sprite.remove_from_sprite_lists()
+            self.active_boss_sprite = None
+
+        self.battle_manager.clear()
+        
+        # 恢复窗口到原始尺寸
+        self.window.set_size(cfg.SCREEN_WIDTH, cfg.SCREEN_HEIGHT)
+
     def _check_game_over(self) -> None:
-        """检查游戏结束条件"""
+        """检查游戏是否结束"""
         if self.player_logic and self.player_logic.health <= 0:
-            print("游戏结束! 你被击败了...")
-            self._restart_game()
+            print("游戏结束! 按 R 重新开始。")
+            # 这里可以显示一个游戏结束视图
     
     def _restart_game(self) -> None:
         """重新开始游戏"""
+        print("重新开始游戏...")
         self.setup()
 
 
 def main() -> None:
-    """主函数"""
-    game = MazeGame(cfg.SCREEN_WIDTH, cfg.SCREEN_HEIGHT, cfg.GAME_TITLE)
-    game.setup()
+    """游戏主函数"""
+    window = arcade.Window(
+        width=cfg.SCREEN_WIDTH,
+        height=cfg.SCREEN_HEIGHT,
+        title=cfg.GAME_TITLE
+    )
+    game_view = MazeGame(window)
+    game_view.setup()
+    window.show_view(game_view)
     arcade.run()
 
 
