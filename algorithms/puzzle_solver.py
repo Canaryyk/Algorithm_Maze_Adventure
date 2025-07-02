@@ -1,15 +1,16 @@
+import os
+import json
 import hashlib
+import random
 
-# ÅĞ¶ÏÊÇ·ñÊÇÖÊÊı£¨ÔÚ 0~9 ·¶Î§ÄÚ£©
-def is_prime(digit):
-    return digit in {2, 3, 5, 7}
+def is_prime(d):
+    return d in {2, 3, 5, 7}
 
-# ½âÎöÏßË÷¸ñÊ½
 def parse_constraints(C):
     constraints = {
         "prime_and_unique": False,
-        "position_even_odd": {},   # {1:0, 2:1, ...}
-        "fixed_digit": {}          # {1: b, 2: b, 3: b}
+        "position_even_odd": {},
+        "fixed_digit": {}
     }
     for clue in C:
         if len(clue) == 2:
@@ -25,94 +26,140 @@ def parse_constraints(C):
                     constraints["fixed_digit"][i + 1] = clue[i]
     return constraints
 
-# µ¥Î»ÅĞ¶ÏÊÇ·ñºÏ·¨
 def is_valid_choice(digit, current_password, constraints):
-    pos = len(current_password) + 1  # 1-based
-
-    if pos in constraints["fixed_digit"]:
-        if digit != constraints["fixed_digit"][pos]:
-            return False
-
+    pos = len(current_password) + 1
+    if pos in constraints["fixed_digit"] and digit != constraints["fixed_digit"][pos]:
+        return False
     if pos in constraints["position_even_odd"]:
-        expected = constraints["position_even_odd"][pos]
-        if expected == 0 and digit % 2 != 0:
+        if constraints["position_even_odd"][pos] == 0 and digit % 2 != 0:
             return False
-        if expected == 1 and digit % 2 != 1:
+        if constraints["position_even_odd"][pos] == 1 and digit % 2 != 1:
             return False
-
     if constraints["prime_and_unique"]:
-        if not is_prime(digit):
+        if not is_prime(digit) or digit in current_password:
             return False
-        if digit in current_password:
-            return False
-
     return True
 
-# ÕûÌåÃÜÂëÅĞ¶Ï
 def satisfies_constraints(password, constraints):
     if len(password) != 3:
         return False
-
     if constraints["prime_and_unique"]:
         if not all(is_prime(d) for d in password):
             return False
         if len(set(password)) != 3:
             return False
-
     return True
 
-# ¼ÆËã¹şÏ£
 def sha256_of_pwd(pwd):
     s = ''.join(str(x) for x in pwd)
-    # Ê¹ÓÃÍ¬ÑùµÄÑÎºÍ·½·¨
     salt = b'\xb2S"e}\xdf\xb0\xfe\x9c\xde\xde\xfe\xf3\x1d\xdc>'
     return hashlib.sha256(salt + s.encode('utf-8')).hexdigest()
 
-
-# Ìí¼Ó solve_password µÄ¼ÆÊıÆ÷°æ±¾
 def solve_password(current_password, constraints, digits=range(10), counter=None):
     if counter is None:
         counter = {"attempts": 0}
-
     if len(current_password) == 3:
         counter["attempts"] += 1
         if satisfies_constraints(current_password, constraints):
-            h = sha256_of_pwd(current_password)
-            if h == constraints["target_hash"]:
+            if sha256_of_pwd(current_password) == constraints["target_hash"]:
                 return current_password
         return None
-
     for d in digits:
         if is_valid_choice(d, current_password, constraints):
-            res = solve_password(current_password + [d], constraints, digits, counter)
-            if res:
-                return res
+            result = solve_password(current_password + [d], constraints, digits, counter)
+            if result:
+                return result
     return None
 
+def method_a(constraints):
+    counter = {"attempts": 0}
+    result = solve_password([], constraints, digits=range(10), counter=counter)
+    return result, counter["attempts"]
 
-def crack_password_from_input(input_data):
-    C = input_data.get("C", [])
-    L = input_data.get("L", "")
+def method_b(constraints):
+    prime_first = [2,3,5,7] + [d for d in range(10) if d not in {2,3,5,7}]
+    counter = {"attempts": 0}
+    result = solve_password([], constraints, digits=prime_first, counter=counter)
+    return result, counter["attempts"]
 
+def method_c(constraints):
+    digits_all = list(range(10))
+    random.shuffle(digits_all)  # éšæœºé¡ºåºå°è¯•
+    counter = {"attempts": 0}
+    result = solve_password([], constraints, digits=digits_all, counter=counter)
+    return result, counter["attempts"]
+
+def try_all_methods(data):
+    C = data.get("C", [])
+    L = data.get("L", "")
     constraints = parse_constraints(C)
     constraints["target_hash"] = L
 
-    counter = {"attempts": 0}
-    password = solve_password([], constraints, counter=counter)
+    res_a, att_a = method_a(constraints)
+    res_b, att_b = method_b(constraints)
+    res_c, att_c = method_c(constraints)
 
-    if password:
-        print("ÕıÈ·ÃÜÂë:", ''.join(str(d) for d in password))
-    else:
-        print("Î´ÕÒµ½·ûºÏÌõ¼şµÄÃÜÂë")
-   # print("³¢ÊÔ´ÎÊı:", counter["attempts"])
+    candidates = []
+    if res_a:
+        candidates.append(("A", res_a, att_a))
+    if res_b:
+        candidates.append(("B", res_b, att_b))
+    if res_c:
+        candidates.append(("C", res_c, att_c))
+
+    if not candidates:
+        return None, max(att_a, att_b, att_c), "None"
+
+    # é€‰æ‹©å°è¯•æ¬¡æ•°æœ€å°‘çš„
+    best = min(candidates, key=lambda x: x[2])
+    return best[1], best[2], best[0]
+
+def crack_all_files_in_folder(folder_path):
+    files = sorted(f for f in os.listdir(folder_path) if f.endswith(".json"))
+
+    total_a, total_b, total_c = 0, 0, 0
+
+    for fname in files:
+        path = os.path.join(folder_path, fname)
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        C = data.get("C", [])
+        L = data.get("L", "")
+        constraints = parse_constraints(C)
+        constraints["target_hash"] = L
+
+        # åˆ†åˆ«è¿è¡Œä¸‰ç§æ–¹æ³•
+        res_a, att_a = method_a(constraints)
+        res_b, att_b = method_b(constraints)
+        res_c, att_c = method_c(constraints)
+
+        total_a += att_a
+        total_b += att_b
+        total_c += att_c
+
+        # è¾“å‡ºå½“å‰æ ·ä¾‹çš„æœ€ä¼˜ç»“æœ
+        options = []
+        if res_a:
+            options.append(("A", res_a, att_a))
+        if res_b:
+            options.append(("B", res_b, att_b))
+        if res_c:
+            options.append(("C", res_c, att_c))
+
+        if not options:
+            print(f"[{fname}]  Not found by any method")
+        else:
+            best = min(options, key=lambda x: x[2])
+            print(f"[{fname}]  Password: {''.join(str(d) for d in best[1])}, Attempts: {best[2]}, Method: {best[0]}")
+
+    # è¾“å‡ºä¸‰ç§æ–¹æ³•çš„æ€»å°è¯•æ¬¡æ•°
+    print("\n Total attempts for each method:")
+    print(f"  Method A: {total_a}")
+    print(f"  Method B: {total_b}")
+    print(f"  Method C: {total_c}")
+    print(f" Final selected total = min({total_a}, {total_b}, {total_c}) = {min(total_a, total_b, total_c)}")
 
 
-# ===== ²âÊÔÑùÀı =====
-#if __name__ == "__main__":
- #   test_input = {
-  #      "C": [[1, 0], [-1, -1]],  # µÚÒ»Î»Å¼Êı£¬ÇÒÈ«ËØÊı²»ÖØ¸´
-   #     "L": "003a44b04e2e9eac5eb7597955068e745d78bb18b17a60d26645beebe111de40"  # 257µÄsha256¹şÏ£
- #   }
-#    crack_password_from_input(test_input)
-
-
+if __name__ == "__main__":
+    crack_all_files_in_folder(r"C:\Users\35883\Desktop\test")
