@@ -1,42 +1,23 @@
 # config.py
 
+# 颜色定义
+BLACK = (0, 0, 0)
+YELLOW = (255, 215, 0) # 使用金黄色 (Gold)
+RED = (220, 20, 60) # 使用猩红色 (Crimson)
+
 #import pygame
 
 # 屏幕与显示设置
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 650 # 稍微增加高度以容纳HUD
+SCREEN_WIDTH = 750
+SCREEN_HEIGHT = 750 # 稍微增加高度以容纳HUD
 GAME_TITLE = "算法迷宫探险"
 FPS = 60
 
 # 迷宫网格设置
-TILE_SIZE = 25 # 稍微增大格子尺寸，让物品更清晰
+TILE_SIZE = 45 # 稍微增大格子尺寸，让物品更清晰
+MAZE_WIDTH = 15 # 迷宫宽度 (格子数)
+MAZE_HEIGHT = 15 # 迷宫高度 (格子数)
 
-# 颜色定义 (RGB)
-BLACK = (0, 0, 0)
-WHITE = (255, 255, 255)
-RED = (255, 0, 0)
-GREEN = (0, 255, 0)
-BLUE = (0, 0, 255)
-YELLOW = (255, 255, 0)
-PURPLE = (128, 0, 128)
-ORANGE = (255, 165, 0)
-GREY = (128, 128, 128)
-
-# 地图元素颜色
-PLAYER_COLOR = BLUE
-WALL_COLOR = (50, 50, 50)
-PATH_COLOR = (200, 200, 200)
-START_COLOR = GREEN
-END_COLOR = RED
-GOLD_COLOR = YELLOW
-TRAP_COLOR = ORANGE
-LOCKER_COLOR = PURPLE
-BOSS_COLOR = (80, 0, 20) # 深红色
-
-# HUD (平视显示器) 设置
-HUD_FONT_SIZE = 30
-HUD_BG_COLOR = GREY
-HUD_HEIGHT = 50
 
 # 玩家设置
 PLAYER_MAX_HEALTH = 100
@@ -67,3 +48,24 @@ ELEMENT_MAPPING = {
     LOCKER: 6,  # 密码锁
     BOSS: 7     # BOSS战
 }
+
+# --- 新增：视觉与动画常量 ---
+
+# 精灵图集路径
+PLAYER_SPRITESHEET_PATH = "Sprout Lands - Sprites - Basic pack/Characters/Basic Charakter Spritesheet.png"
+
+# 精灵原始尺寸
+SPRITE_PIXEL_SIZE = 16
+
+# 玩家动画设置
+PLAYER_ANIMATION_FRAMES = 4
+CHAR_ANIM_DOWN = 0
+CHAR_ANIM_LEFT = 1
+CHAR_ANIM_RIGHT = 2
+CHAR_ANIM_UP = 3
+PLAYER_ANIMATION_SPEED = 0.15 # 切换动画帧的秒数
+
+# 缩放与缓动
+TILE_SCALING = TILE_SIZE / SPRITE_PIXEL_SIZE
+PLAYER_SCALING = TILE_SCALING
+LERP_FACTOR = 0.1

@@ -1,231 +1,306 @@
-# -*- coding: utf-8 -*-
-"""
-动态规划求解迷宫最优路径（支持负权重）
-核心算法：类Bellman-Ford思想的网格DP
-"""
-from heapq import heappush, heappop
-from config import ELEMENT_MAPPING, GOLD_VALUE, TRAP_DAMAGE
+'''
+import heapq
+import pygame
+import numpy as np
 import sys
+import time
 
-# 陷阱造成的是伤害，在计算最优路径（最大收益）时应为负值
-TRAP_PENALTY = -TRAP_DAMAGE
+# --- 算法核心部分 (与之前相同) ---
 
-def calculate_optimal_path(grid):
+# 定义迷宫中不同元素的符号及其对应的资源价值
+CELL_VALUES = {
+    'S': 0, 'E': 0, ' ': 0, 'L': 0, 'B': 0,
+    'G': 5, 'T': -3
+}
+WALL = '#'
+
+
+class OptimalPathfinderWithRepeats:
+    # ... (此处代码与上一版完全相同，为简洁起见，将其折叠)
+    # 您可以将上一版中的 OptimalPathfinderWithRepeats 类完整地复制到这里
     """
-    计算从起点到终点的最优路径，目标是最大化收益。
-    收益 = 拾取的金币总价值 - 遭遇的陷阱惩罚
+    大战略家 (V2 - 允许重复路径)
+
+    使用Dijkstra算法的变体（在状态图上进行最佳优先搜索），计算在允许重复走路径，
+    但每个资源/陷阱只能收集/触发一次的规则下的最优路径。
     """
-    rows, cols = len(grid), len(grid[0])
-    start_pos, exit_pos = _find_special_positions(grid)
 
-    # 健壮性检查：确保起点和终点都存在
-    if not start_pos:
-        print("错误: 迷宫中未找到起点 'S'。")
-        return 0, []
-    if not exit_pos:
-        print("错误: 迷宫中未找到终点 'E'。")
-        return 0, []
+    def __init__(self, grid):
+        """初始化寻路器"""
+        if not grid or not grid[0]:
+            raise ValueError("迷宫网格不能为空。")
+        self.grid = grid
+        self.rows = len(grid)
+        self.cols = len(grid[0])
 
-    gold_positions = {(i, j) for i in range(rows) for j in range(cols)
-                      if grid[i][j] == ELEMENT_MAPPING['G']}
-    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        # 1. 查找特殊点位并建立物品地图
+        self.start_pos = None
+        self.end_pos = None
+        self.item_locations = []
+        self.item_map = {}  # (r, c) -> item_index
+        self.item_values = []
 
-    # 使用类封装状态（便于路径重构）
-    class State:
-        __slots__ = ['i', 'j', 'mask', 'score', 'prev']
+        for r in range(self.rows):
+            for c in range(self.cols):
+                char = self.grid[r][c]
+                if char == 'S':
+                    self.start_pos = (r, c)
+                elif char == 'E':
+                    self.end_pos = (r, c)
+                elif char in ('G', 'T'):
+                    item_index = len(self.item_locations)
+                    self.item_locations.append((r, c))
+                    self.item_map[(r, c)] = item_index
+                    self.item_values.append(CELL_VALUES[char])
 
-        def __init__(self, i, j, mask, score, prev=None):
-            self.i = i
-            self.j = j
-            self.mask = mask
-            self.score = score
-            self.prev = prev
+        if self.start_pos is None or self.end_pos is None:
+            raise ValueError("迷宫必须包含一个起点 'S' 和一个终点 'E'。")
 
-        # 添加比较方法（按 score 排序）
-        def __lt__(self, other):
-            return self.score > other.score  # 注意：堆默认是最小堆，这里用 > 实现最大堆
+        self.num_items = len(self.item_locations)
 
-    # 初始化
-    pos_to_bit = {pos: i for i, pos in enumerate(sorted(gold_positions))}
-    init_mask = 0
-    init_score = 0
-
-    # 使用优先队列（按score降序）
-    heap = []
-    visited = {}  # (i,j,mask) -> best_score
-    start_state = State(start_pos[0], start_pos[1], init_mask, init_score)
-    heappush(heap, (-start_state.score, start_state))
-    visited[(start_pos[0], start_pos[1], init_mask)] = init_score
-
-    # 主循环（类似Dijkstra）
-    final_state = None
-    while heap:
-        neg_score, current = heappop(heap)
-        current_score = -neg_score
-
-        # 到达终点时记录最优状态
-        if (current.i, current.j) == exit_pos:
-            final_state = current
-            break
-
-        # 遍历四个方向
-        for di, dj in directions:
-            ni, nj = current.i + di, current.j + dj
-            if not (0 <= ni < rows and 0 <= nj < cols):
-                continue
-            if grid[ni][nj] == ELEMENT_MAPPING['#']:
-                continue
-
-            # 计算新状态
-            new_mask = current.mask
-            new_score = current_score
-            cell_type = grid[ni][nj]
-
-            if cell_type == ELEMENT_MAPPING['G']:
-                bit = pos_to_bit.get((ni, nj), -1)
-                if bit != -1 and not (new_mask & (1 << bit)):
-                    new_mask |= (1 << bit)
-                    new_score += GOLD_VALUE
-            elif cell_type == ELEMENT_MAPPING['T']:
-                # 需要检查这个陷阱是否在之前路径中触发过
-                # 这里简化处理（实际需要沿prev指针回溯检查）
-                new_score += TRAP_PENALTY
-
-            # 更新状态
-            state_key = (ni, nj, new_mask)
-            if state_key not in visited or new_score > visited[state_key]:
-                visited[state_key] = new_score
-                new_state = State(ni, nj, new_mask, new_score, current)
-                heappush(heap, (-new_score, new_state))
-
-    # 重构路径
-    if final_state is None:
-        return 0, []
-
-    path = []
-    current = final_state
-    while current:
-        path.append((current.i, current.j))
-        current = current.prev
-    path.reverse()
-
-    return final_state.score, path
-
-def _reconstruct_with_resources(grid, dp, exit_pos, best_mask, pos_to_bit):
-    """重构考虑资源使用状态的路径"""
-    rows, cols = len(grid), len(grid[0])
-    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-
-    # 反向追踪需要记录前驱状态
-    path = []
-    i, j = exit_pos
-    current_mask = best_mask
-    remaining_traps = set((i, j) for i in range(rows) for j in range(cols)
-                          if grid[i][j] == ELEMENT_MAPPING['T'])
-
-    # 检查终点是否可达
-    if dp[i][j][current_mask] == -sys.maxsize:
+    def _reconstruct_path(self, predecessor, best_final_state):
+        """根据前驱字典回溯路径"""
+        path = []
+        curr_state = best_final_state
+        while curr_state is not None:
+            r, c, mask = curr_state
+            # 为了让动画更平滑，如果移动是跳跃的，我们在这里插入中间步骤
+            # （在这个四向移动的网格中，这通常不是问题，但这是个好习惯）
+            path.append((r, c))
+            curr_state = predecessor.get(curr_state)
+        path.reverse()
         return path
 
-    # 由于DP过程未记录前驱，需要二次遍历重建路径
-    # 这里采用从终点反向模拟的方式
-    while True:
-        path.append((i, j))
-        cell_type = grid[i][j]
+    def calculate_optimal_path(self):
+        """
+        主函数：使用基于优先队列的Dijkstra变体计算最优路径和最大分值。
+        """
+        pq = []
+        max_scores = {}
+        predecessor = {}
 
-        # 如果是起点则终止
-        if cell_type == ELEMENT_MAPPING['S']:
-            break
+        start_r, start_c = self.start_pos
+        initial_mask = 0
+        initial_score = 0
 
-        # 计算当前单元格的影响
-        cell_value = 0
-        prev_mask = current_mask
-        if cell_type == ELEMENT_MAPPING['G']:
-            bit = pos_to_bit.get((i, j), -1)
-            if bit != -1 and (current_mask & (1 << bit)):
-                cell_value = GOLD_VALUE
-                prev_mask = current_mask ^ (1 << bit)  # 回退金币状态
-        elif cell_type == ELEMENT_MAPPING['T'] and (i, j) in remaining_traps:
-            cell_value = TRAP_PENALTY
-            remaining_traps.remove((i, j))
+        if (start_r, start_c) in self.item_map:
+            item_index = self.item_map[(start_r, start_c)]
+            initial_mask = 1 << item_index
+            initial_score = self.item_values[item_index]
 
-        # 寻找合法前驱
-        found = False
-        for di, dj in directions:
-            ni, nj = i + di, j + dj
-            if 0 <= ni < rows and 0 <= nj < cols:
-                if grid[ni][nj] == ELEMENT_MAPPING['#']:
+        start_state = (start_r, start_c, initial_mask)
+        heapq.heappush(pq, (-initial_score, start_r, start_c, initial_mask))
+        max_scores[start_state] = initial_score
+        predecessor[start_state] = None
+
+        while pq:
+            neg_score, r, c, mask = heapq.heappop(pq)
+            score = -neg_score
+
+            if score < max_scores.get((r, c, mask), -float('inf')):
+                continue
+
+            for dr, dc in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+                nr, nc = r + dr, c + dc
+
+                if not (0 <= nr < self.rows and 0 <= nc < self.cols and self.grid[nr][nc] != WALL):
                     continue
 
-                # 检查状态转移是否合理
-                if dp[ni][nj][prev_mask] + cell_value == dp[i][j][current_mask]:
-                    i, j = ni, nj
-                    current_mask = prev_mask
-                    found = True
-                    break
+                new_score = score
+                new_mask = mask
 
-        if not found:  # 回溯失败（理论上不应发生）
-            break
+                if (nr, nc) in self.item_map:
+                    item_index = self.item_map[(nr, nc)]
+                    if not (mask & (1 << item_index)):
+                        new_mask = mask | (1 << item_index)
+                        new_score = score + self.item_values[item_index]
 
-    path.reverse()
-    return path
+                new_state = (nr, nc, new_mask)
 
-def _find_special_positions(grid):
-    """定位起点和终点坐标"""
-    start_pos, exit_pos = None, None
-    for i in range(len(grid)):
-        for j in range(len(grid[0])):
-            if grid[i][j] == ELEMENT_MAPPING['S']:
-                start_pos = (i, j)
-            elif grid[i][j] == ELEMENT_MAPPING['E']:
-                exit_pos = (i, j)
-    return start_pos, exit_pos
+                if new_score > max_scores.get(new_state, -float('inf')):
+                    max_scores[new_state] = new_score
+                    predecessor[new_state] = (r, c, mask)
+                    heapq.heappush(pq, (-new_score, nr, nc, new_mask))
 
+        best_score = -float('inf')
+        best_final_state = None
 
-def _get_cell_value(cell_type):
-    """获取单元格价值"""
-    if cell_type == ELEMENT_MAPPING['G']:
-        return GOLD_VALUE
-    elif cell_type == ELEMENT_MAPPING['T']:
-        return TRAP_PENALTY
-    elif cell_type in (ELEMENT_MAPPING['L'], ELEMENT_MAPPING['B']):
-        return 0  # 机关和BOSS不直接改变分值
-    else:
-        return 0  # 路径/起点/终点
+        for (r, c, mask), score in max_scores.items():
+            if (r, c) == self.end_pos and score > best_score:
+                best_score = score
+                best_final_state = (r, c, mask)
+
+        if best_final_state is None:
+            return -1, []
+
+        optimal_path = self._reconstruct_path(predecessor, best_final_state)
+
+        return best_score, optimal_path
 
 
-# 示例用法
+# --- Pygame 可视化部分 ---
+
+class MazeVisualizer:
+    def __init__(self, grid, cell_size=40):
+        self.grid = grid
+        self.rows = len(grid)
+        self.cols = len(grid[0])
+        self.cell_size = cell_size
+        self.width = self.cols * self.cell_size
+        self.height = self.rows * self.cell_size
+
+        # 定义颜色
+        self.COLORS = {
+            'BG': (20, 20, 40),
+            'WALL': (130, 130, 150),
+            'PATH': (50, 50, 80),
+            'START': (0, 255, 0),
+            'END': (255, 0, 0),
+            'GOLD': (255, 223, 0),
+            'TRAP': (160, 0, 80),
+            'AGENT': (50, 150, 255)
+        }
+
+        pygame.init()
+        self.screen = pygame.display.set_mode((self.width, self.height))
+        pygame.display.set_caption("大战略家 - 最优路径可视化")
+        self.font = pygame.font.SysFont('Arial', self.cell_size // 3)
+
+    def _draw_grid(self, collected_items_mask=0, item_map=None):
+        """绘制迷宫的静态背景"""
+        self.screen.fill(self.COLORS['BG'])
+        for r in range(self.rows):
+            for c in range(self.cols):
+                rect = pygame.Rect(c * self.cell_size, r * self.cell_size, self.cell_size, self.cell_size)
+                char = self.grid[r][c]
+
+                # 绘制背景色
+                if char == WALL:
+                    pygame.draw.rect(self.screen, self.COLORS['WALL'], rect)
+                else:
+                    pygame.draw.rect(self.screen, self.COLORS['PATH'], rect)
+
+                # 绘制物品和特殊点
+                if char == 'S':
+                    pygame.draw.circle(self.screen, self.COLORS['START'], rect.center, self.cell_size // 3)
+                elif char == 'E':
+                    pygame.draw.circle(self.screen, self.COLORS['END'], rect.center, self.cell_size // 3)
+                elif char in ('G', 'T'):
+                    # 只有未被收集的物品才显示
+                    is_collected = False
+                    if item_map and (r, c) in item_map:
+                        item_index = item_map[(r, c)]
+                        if (collected_items_mask >> item_index) & 1:
+                            is_collected = True
+
+                    if not is_collected:
+                        color = self.COLORS['GOLD'] if char == 'G' else self.COLORS['TRAP']
+                        pygame.draw.circle(self.screen, color, rect.center, self.cell_size // 4)
+
+    def _get_path_trace_colors(self, num_steps):
+        """生成从冷到暖的颜色渐变列表"""
+        start_color = np.array([0, 0, 255])  # Blue
+        end_color = np.array([255, 255, 0])  # Yellow
+        colors = []
+        for i in range(num_steps):
+            interp = np.sqrt(i / (num_steps - 1)) if num_steps > 1 else 1.0  # sqrt for non-linear feel
+            color = start_color + (end_color - start_color) * interp
+            colors.append(tuple(color.astype(int)))
+        return colors
+
+    def run_visualization(self, path, item_map):
+        """主可视化循环，动画展示路径"""
+        if not path:
+            print("无路径可供可视化。")
+            return
+
+        clock = pygame.time.Clock()
+        path_len = len(path)
+        trace_colors = self._get_path_trace_colors(path_len)
+
+        animating = True
+        current_step = 0
+
+        # 初始收集状态
+        collected_mask = 0
+        initial_score = 0
+        start_pos = path[0]
+        if start_pos in item_map:
+            item_index = item_map[start_pos]
+            collected_mask |= (1 << item_index)
+            initial_score += CELL_VALUES[self.grid[start_pos[0]][start_pos[1]]]
+
+        # 动画速度控制
+        last_update_time = time.time()
+        animation_speed = 0.08  # 秒/步
+
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        running = False
+
+            # 更新动画
+            if animating and time.time() - last_update_time > animation_speed:
+                if current_step < path_len - 1:
+                    current_step += 1
+                    # 更新收集状态
+                    pos = path[current_step]
+                    if pos in item_map:
+                        item_index = item_map[pos]
+                        if not ((collected_mask >> item_index) & 1):
+                            collected_mask |= (1 << item_index)
+                else:
+                    animating = False  # 动画结束
+                last_update_time = time.time()
+
+            # --- 绘图 ---
+            self._draw_grid(collected_mask, item_map)
+
+            # 绘制路径轨迹
+            for i in range(current_step):
+                start_pos_px = (path[i][1] * self.cell_size + self.cell_size // 2,
+                                path[i][0] * self.cell_size + self.cell_size // 2)
+                end_pos_px = (path[i + 1][1] * self.cell_size + self.cell_size // 2,
+                              path[i + 1][0] * self.cell_size + self.cell_size // 2)
+                pygame.draw.line(self.screen, trace_colors[i], start_pos_px, end_pos_px, 3)
+
+            # 绘制代理（玩家）
+            agent_pos = path[current_step]
+            agent_rect = pygame.Rect(agent_pos[1] * self.cell_size, agent_pos[0] * self.cell_size, self.cell_size,
+                                     self.cell_size)
+            pygame.draw.circle(self.screen, self.COLORS['AGENT'], agent_rect.center, self.cell_size // 3)
+
+            # 更新显示
+            pygame.display.flip()
+            clock.tick(60)  # 限制最高帧率
+
+        pygame.quit()
+        sys.exit()
+
+
 if __name__ == "__main__":
-    # 从 game_logic.maze 导入迷宫类，并获取真实的迷宫数据
-    # 这使得寻路算法可以基于当前游戏的实际地图进行计算
-    import os
-    # 将项目根目录添加到python解释器的搜索路径中
-    # 这样可以直接运行该文件进行测试
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from game_logic.maze import Maze
+    import json
+    # 从 JSON 文件中读取迷宫数据
+    with open('json/result_maze_15_15_2_formatted.json', 'r', encoding='utf-8') as f:
+        maze_data = json.load(f)
 
-    # 初始化迷宫 (尺寸参数在这里不重要，因为会加载默认地图)
-    game_maze = Maze(0, 0)
-    char_grid = game_maze.grid
+    grid = maze_data["maze"]
 
-    # 将字符表示的迷宫转换为算法所需的数值网格
-    numeric_grid = [[ELEMENT_MAPPING.get(cell, ELEMENT_MAPPING[' ']) for cell in row] for row in char_grid]
+    print("正在计算最优路径，请稍候...")
+    pathfinder = OptimalPathfinderWithRepeats(grid)
+    max_score, optimal_path = pathfinder.calculate_optimal_path()
 
-    max_val, path = calculate_optimal_path(numeric_grid)
+    if optimal_path:
+        print(f"计算完成！最大得分: {max_score}, 路径长度: {len(optimal_path)}步。")
+        print("启动可视化...")
 
-    print(f"最大资源值: {max_val}")
-    if path:
-        print("最优路径坐标:")
-    for step in path:
-            print(f"({step[0]}, {step[1]}) -> '{char_grid[step[0]][step[1]]}'")
-
-        # 可视化路径
-    path_grid = [list(row) for row in char_grid]
-    for i, j in path:
-        if path_grid[i][j] not in ('S', 'E'):
-                path_grid[i][j] = '*'
-        print("\n最优路径可视化:")
-        for row in path_grid:
-            print(" ".join(row))
+        # 创建并运行可视化
+        visualizer = MazeVisualizer(grid, cell_size=35)
+        visualizer.run_visualization(optimal_path, pathfinder.item_map)
     else:
-        print("未能找到路径。")
+        print("计算失败：无法从起点找到通往终点的路径。")
+'''
