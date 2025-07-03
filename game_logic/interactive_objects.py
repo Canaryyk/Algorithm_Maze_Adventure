@@ -2,6 +2,7 @@
 import arcade
 import json
 import config as cfg
+from .audio_manager import audio_manager
 
 class ChestSprite(arcade.Sprite):
     """
@@ -62,9 +63,11 @@ class PuzzleChestSprite(ChestSprite):
 
     def unlock(self):
         """解锁宝箱"""
-        self.is_locked = False
-        print("宝箱已解锁！")
-        self.open()
+        if self.is_locked:
+            self.is_locked = False
+            print("宝箱已解锁！")
+            audio_manager.play_sound_effect("unlock_locker")  # 在这里播放音效
+            self.open()
 
 class BossSprite(arcade.Sprite):
     """

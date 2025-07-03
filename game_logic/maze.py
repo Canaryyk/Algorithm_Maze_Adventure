@@ -85,6 +85,14 @@ class Maze:
                     return (c, r)
         return (1, 1)  # 默认位置
     
+    def get_exit_position(self) -> Optional[Tuple[int, int]]:
+        """获取出口位置"""
+        for r in range(self.height):
+            for c in range(self.width):
+                if self.grid[r][c] == cfg.EXIT:
+                    return (c, r)
+        return None  # 如果没有找到出口
+    
     def get_tile_type(self, x: int, y: int) -> Optional[str]:
         """获取指定位置的瓦片类型"""
         if self.is_valid_position(x, y):
@@ -101,6 +109,10 @@ class Maze:
     def is_valid_position(self, x: int, y: int) -> bool:
         """检查坐标是否有效"""
         return 0 <= x < self.width and 0 <= y < self.height
+    
+    def clear_tile(self, x: int, y: int) -> bool:
+        """将指定位置的瓦片设置为空地(PATH)"""
+        return self.set_tile_type(x, y, cfg.PATH)
     
     def is_wall(self, x: int, y: int) -> bool:
         """检查是否为墙壁"""

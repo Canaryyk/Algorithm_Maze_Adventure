@@ -214,7 +214,7 @@ class BattleManager:
         self.projectiles.clear()
         self.character_sprites.clear()
         self.player_sprite = None
-        self.boss_sprite = None
+        self.boss_sprite = None 
         self.is_battle_finished = False
 
     def clear(self):

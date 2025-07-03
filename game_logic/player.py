@@ -77,7 +77,7 @@ class Player:
         self.grid_y = grid_y
     
     def handle_interaction(self, grid_x: Optional[int] = None, grid_y: Optional[int] = None) -> Optional[str]:
-        """处理玩家交互事件"""
+        """处理玩家交互事件。返回交互类型字符串，以便触发音效等。"""
         if grid_x is None:
             grid_x = self.grid_x
         if grid_y is None:
@@ -86,19 +86,27 @@ class Player:
         tile_type = self.maze.get_tile_type(grid_x, grid_y)
         
         if tile_type == cfg.RESOURCE_NODE:
-            self.resources += cfg.RESOURCE_VALUE
-            self.maze.set_tile_type(grid_x, grid_y, cfg.PATH)
+            self.add_resources(cfg.RESOURCE_VALUE)
+            self.maze.clear_tile(grid_x, grid_y) # 直接修改迷宫数据
+            print(f"捡到资源! 当前资源: {self.resources}")
             return cfg.RESOURCE_NODE
         
         elif tile_type == cfg.TRAP:
-            self.resources -= cfg.TRAP_PENALTY
-            self.maze.set_tile_type(grid_x, grid_y, cfg.PATH)
+            self.deduct_resources(cfg.TRAP_PENALTY)
+            self.maze.clear_tile(grid_x, grid_y) # 直接修改迷宫数据
+            print(f"踩到陷阱! 剩余资源: {self.resources}")
             return cfg.TRAP
         
         elif tile_type in [cfg.LOCKER, cfg.BOSS, cfg.EXIT]:
+            # 对于这些复杂交互，只返回类型，由主循环处理
             return tile_type
         
         return None
+    
+    def add_resources(self, amount: int):
+        """增加指定数量的资源"""
+        self.resources += amount
+        print(f"资源增加: +{amount}, 当前资源: {self.resources}")
     
     def deduct_resources(self, amount: int):
         """扣除指定数量的资源"""
@@ -108,3 +116,28 @@ class Player:
     def reset(self) -> None:
         """重置玩家状态"""
         self.resources = 100
+        self.grid_x = 0
+        self.grid_y = 0
+
+    def get_grid_position(self) -> tuple[int, int]:
+        """返回玩家当前的网格坐标 (行, 列)"""
+        return (self.grid_y, self.grid_x)
+
+    def move(self, dx: int, dy: int) -> bool:
+        """
+        处理玩家在迷宫网格中的移动。
+        """
+        # 计算新的网格坐标
+        new_x = self.grid_x + dx
+        new_y = self.grid_y + dy
+        
+        # 检查新的网格坐标是否在迷宫范围内
+        if 0 <= new_x < self.maze.width and 0 <= new_y < self.maze.height:
+            # 检查新的网格坐标是否是路径
+            if self.maze.get_tile_type(new_x, new_y) == cfg.PATH:
+                # 更新玩家的位置
+                self.grid_x = new_x
+                self.grid_y = new_y
+                return True
+        
+        return False

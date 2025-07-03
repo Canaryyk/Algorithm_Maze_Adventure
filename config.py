@@ -14,8 +14,8 @@ YELLOW = (255, 215, 0)  # 金黄色
 RED = (220, 20, 60)  # 猩红色
 
 # === 屏幕与显示设置 ===
-SCREEN_WIDTH = 750
-SCREEN_HEIGHT = 750
+SCREEN_WIDTH = 680
+SCREEN_HEIGHT = 680
 GAME_TITLE = "算法迷宫探险"
 
 # === 迷宫设置 ===
