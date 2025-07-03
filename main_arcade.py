@@ -19,6 +19,7 @@ from game_logic.game_views import PuzzleView
 from game_logic.battle_manager import BattleManager
 from game_logic.audio_manager import audio_manager
 from algorithms.pathfinding import find_maze_path
+from game_logic.ai_agent import AIAgent # 导入 AIAgent 类
 
 
 class MazeGame(arcade.View):
@@ -63,6 +64,10 @@ class MazeGame(arcade.View):
         self.player_sprite: Optional[PlayerSprite] = None
         self.physics_engine: Optional[arcade.PhysicsEngineSimple] = None
         
+        # 新增 AI 代理相关属性
+        self.ai_agent: Optional[AIAgent] = None # AI 代理实例
+        self.is_ai_active = False # 控制 AI 代理是否激活的标志
+
         # 精灵列表
         self.sprite_lists: Dict[str, arcade.SpriteList] = {}
         
@@ -97,9 +102,17 @@ class MazeGame(arcade.View):
         self.path_sprites = arcade.SpriteList()
 
         # 创建玩家
-        start_x, start_y = self.game_maze.get_start_position()
-        self.player_logic = Player(start_x, start_y, self.game_maze)
-        self.player_sprite = PlayerSprite(start_pos=player_start_pos)
+        start_x_grid, start_y_grid = self.game_maze.get_start_position() # 获取迷宫起始点的网格坐标
+        self.player_logic = Player(start_x_grid, start_y_grid, self.game_maze)
+        self.player_sprite = PlayerSprite(start_pos=player_start_pos) # player_start_pos 是玩家精灵的像素坐标
+
+        # 在与玩家相同的起始像素位置创建 AI 代理
+        if self.player_sprite:
+            self.ai_agent = AIAgent(self.player_sprite.center_x, self.player_sprite.center_y, self.game_maze)
+        else:
+            # 如果 player_sprite 未能正确初始化，则使用默认的像素位置
+            pixel_x, pixel_y = self._grid_to_pixel_position(start_x_grid, start_y_grid)
+            self.ai_agent = AIAgent(pixel_x, pixel_y, self.game_maze)
         
         # 设置物理引擎
         self.physics_engine = arcade.PhysicsEngineSimple(
@@ -138,6 +151,10 @@ class MazeGame(arcade.View):
         # 绘制玩家
         if self.player_sprite:
             self.player_sprite.draw()
+
+        # 绘制 AI Agent (如果激活)
+        if self.ai_agent and self.is_ai_active:
+            self.ai_agent.draw()
 
         # 激活GUI摄像机
         self.gui_camera.use()
@@ -231,6 +248,25 @@ class MazeGame(arcade.View):
             10, self.window.height - 50, 
             arcade.color.WHITE, 12
         )
+
+        # 绘制 AI 状态 (新增)
+        ai_status = "激活" if self.is_ai_active else "禁用"
+        arcade.draw_text(
+            f"AI: {ai_status} (Ctrl+O)",
+            10, self.window.height - 75,
+            arcade.color.CYAN, 12
+        )
+        if self.ai_agent and self.is_ai_active:
+             arcade.draw_text(
+                f"AI资源: {self.ai_agent.gold}",
+                10, self.window.height - 90,
+                cfg.YELLOW, 12
+            )
+             arcade.draw_text(
+                f"AI血量: {self.ai_agent.health}",
+                10, self.window.height - 105,
+                arcade.color.RED, 12
+            )
     
     def on_update(self, delta_time: float) -> None:
         """更新游戏逻辑"""
@@ -238,7 +274,7 @@ class MazeGame(arcade.View):
         if self.is_game_finished:
             return
 
-        # 检查路径计算是否完成
+        # 检查玩家路径计算是否完成 (这是玩家的自动寻路，与AI代理独立)
         if self.is_calculating_path:
             if self.path_calculation_result is not None:
                 self._on_path_found(self.path_calculation_result)
@@ -261,29 +297,32 @@ class MazeGame(arcade.View):
             self.battle_manager.on_update(delta_time)
             return # 战斗时，暂停游戏世界的大部分更新
 
-        if not self._validate_game_components():
-            return
+        # --- 玩家更新逻辑 (除非在战斗/遭遇中或游戏结束，否则总是运行) ---
+        if self._validate_game_components():
+            self.animation_timer += delta_time
+            
+            # 更新玩家移动（手动或自动寻路）
+            self._update_player_movement()
+            
+            # 更新物理引擎
+            if self.physics_engine:
+                self.physics_engine.update()
+            
+            # 更新动画
+            self._update_animations()
+            
+            # 处理玩家与物品的交互
+            self._handle_interactions()
+            
+            # 检查玩家的游戏结束条件
+            self._check_game_over()
         
-        self.animation_timer += delta_time
-        
-        # 更新玩家移动（已整合手动和自动寻路）
-        self._update_player_movement()
-        
-        # 更新物理引擎
-        if self.physics_engine:
-            self.physics_engine.update()
-        
-        # 更新动画
-        self._update_animations()
-        
-        # 处理交互
-        self._handle_interactions()
-        
-        # 检查游戏结束条件
-        self._check_game_over()
-        
-        # 根据玩家位置更新摄像机
-        # self._center_camera_on_player() # 已禁用
+        # --- AI 代理更新逻辑 (仅当 AI 激活时运行) ---
+        if self.ai_agent and self.is_ai_active:
+            self.ai_agent.update() # AI 代理处理其自身的移动和交互
+            
+        # 根据玩家位置更新摄像机 (已禁用，保留为注释)
+        # self._center_camera_on_player()
     
     def on_key_press(self, key: int, modifiers: int) -> None:
         """处理按键按下事件"""
@@ -293,6 +332,7 @@ class MazeGame(arcade.View):
             else:
                 print("ESC pressed - could open a pause menu.")
         elif key == arcade.key.P:
+            # 玩家的寻路可视化
             self.toggle_pathfinding_visualization()
         elif key == arcade.key.M:
             # M键切换背景音乐开/关
@@ -300,13 +340,33 @@ class MazeGame(arcade.View):
         elif key == arcade.key.N:
             # N键切换音效开/关
             audio_manager.toggle_effects()
-        
-        if self.input_handler and not self.is_showing_path:
+        elif key == arcade.key.O and modifiers & arcade.key.MOD_CTRL:
+            # Ctrl+O 切换 AI 代理的激活状态
+            self.is_ai_active = not self.is_ai_active
+            if self.is_ai_active:
+                print("AI Agent 已激活，开始自动寻路。")
+                # 当 AI 激活时，将 AI 代理移动到玩家当前位置
+                if self.ai_agent and self.player_sprite:
+                    self.ai_agent.center_x = self.player_sprite.center_x
+                    self.ai_agent.center_y = self.player_sprite.center_y
+                    # 重置 AI 状态以重新计算从新位置开始的路径
+                    self.ai_agent.state = 'CALCULATING_MAIN_PATH'
+                    self.ai_agent.path_taken_for_interaction.clear() # 清除已交互路径点
+                    self.ai_agent.path_taken_for_interaction.add(self.ai_agent.get_grid_pos())
+                    self.ai_agent.gold = 0 # 重置 AI 的金币
+                    self.ai_agent.health = cfg.PLAYER_MAX_HEALTH # 重置 AI 的生命值
+            else:
+                print("AI Agent 已禁用。")
+            return # 消耗 Ctrl+O 事件，防止其他按键处理器接收
+
+        # 只有当 AI 未激活时，才允许玩家的输入处理器工作
+        if self.input_handler and not self.is_showing_path and not self.is_ai_active:
             self.input_handler.on_key_press(key)
     
     def on_key_release(self, key: int, modifiers: int) -> None:
         """处理按键释放事件"""
-        if self.input_handler and not self.is_showing_path:
+        # 只有当 AI 未激活时，才允许玩家的输入处理器工作
+        if self.input_handler and not self.is_showing_path and not self.is_ai_active:
             self.input_handler.on_key_release(key)
     
     def _validate_game_components(self) -> bool:
@@ -324,10 +384,10 @@ class MazeGame(arcade.View):
             return
 
         if self.is_showing_path:
-            # 自动寻路模式
+            # 自动寻路模式 (玩家)
             self._update_pathfinding_movement()
         else:
-            # 手动控制模式
+            # 手动控制模式 (玩家)
             if not self.input_handler:
                 return
             target_speed_x, target_speed_y = self.input_handler.get_movement_vector()
@@ -534,7 +594,7 @@ class MazeGame(arcade.View):
         self.setup()
 
     def toggle_pathfinding_visualization(self):
-        """切换路径可视化和自动移动"""
+        """切换玩家路径可视化和自动移动"""
         if self.is_showing_path:
             # 关闭路径显示
             self.is_showing_path = False

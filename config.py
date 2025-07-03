@@ -23,11 +23,14 @@ TILE_SIZE = 45  # 每个格子的像素大小
 MAZE_WIDTH = 15  # 迷宫宽度（格子数）
 MAZE_HEIGHT = 15  # 迷宫高度（格子数）
 
-# === 玩家设置 ===
+# === 玩家和AI代理设置 ===
 PLAYER_SPEED = 4
+PLAYER_MAX_HEALTH = 100 # 新增: 玩家最大生命值 (也用于AI代理)
+GOLD_VALUE = 10         # 新增: 金币价值 (也用于AI代理)
+TRAP_DAMAGE = 20        # 新增: 陷阱伤害 (也用于AI代理)
 
 # === 游戏数值 ===
-TRAP_PENALTY = 30  # 陷阱惩罚（扣除资源）
+TRAP_PENALTY = 30  # 陷阱惩罚（扣除资源） - 这与TRAP_DAMAGE可能冲突，后续可考虑统一
 RESOURCE_VALUE = 50
 
 # === 地图元素符号 ===
@@ -39,6 +42,7 @@ RESOURCE_NODE = 'G'     # 资源点
 TRAP = 'T'     # 陷阱
 LOCKER = 'L'   # 宝箱
 BOSS = 'B'     # BOSS
+GOLD = 'G'     # 新增: 金币的地图符号，与RESOURCE_NODE相同，需要确认其用途
 
 # === 图像缩放配置 ===
 PNG_SPRITE_SIZE = 96  # PNG图片的实际尺寸
